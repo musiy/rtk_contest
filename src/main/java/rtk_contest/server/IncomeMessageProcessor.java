@@ -7,6 +7,8 @@ import org.slf4j.LoggerFactory;
 import rtk_contest.templating.TemplateMatcher;
 import rtk_contest.templating.TemplateMatcherFactory;
 
+import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -62,12 +64,16 @@ public class IncomeMessageProcessor extends Thread {
                     .setKey(requestInfo.key)
                     .setPayload(requestInfo.value)
                     .build();
+            int cnt = 0;
+
+            List<ConsumerData> toDelete = new LinkedList<>();
             for (ConsumerData consumer : consumers) {
                 boolean matchFound = false;
                 for (String template : consumer.getTemplates()) {
                     TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(template);
-                    if (templateMatcher.matchTo(template)) {
+                    if (templateMatcher.matchTo(requestInfo.key)) {
                         matchFound = true;
+                        cnt++;
                         break;
                     }
                 }
@@ -75,13 +81,24 @@ public class IncomeMessageProcessor extends Thread {
                     try {
                         consumer.onNext(response);
                     } catch (Exception e) {
+                        toDelete.add(consumer);
                         LOGGER.error(String.format("closed consumer? [%d]", consumer.hashCode()));
                     }
                 }
             }
+
+            for (ConsumerData consumer : toDelete) {
+                consumers.remove(consumer);
+                for (String template : consumer.getTemplates()) {
+                    TemplateMatcherFactory.free(template);
+                }
+            }
+
             long t2 = System.currentTimeMillis();
             // ######################################################################################3
-            LOGGER_MESSAGE_PROCESSING.info(String.format("rcv: %d, snt: %d", t1 - t0, t2 - t1));
+            if (t2 - t1 > 200) {
+                LOGGER_MESSAGE_PROCESSING.info(String.format("wait: %d, proc: %d, mf: %d", t1 - t0, t2 - t1, cnt));
+            }
             // ######################################################################################3
         }
     }

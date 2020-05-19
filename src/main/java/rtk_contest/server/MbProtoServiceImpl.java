@@ -5,6 +5,7 @@ import mbproto.Mbproto;
 import mbproto.MessageBrokerGrpc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import rtk_contest.templating.TemplateMatcherFactory;
 
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicLong;
@@ -54,7 +55,7 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
 
             @Override
             public void onError(Throwable t) {
-                LOGGER.error("Продюсер закрылся с ошибкой", t);
+                // LOGGER.error("Продюсер закрылся с ошибкой", t);
             }
 
             @Override
@@ -103,17 +104,22 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
                 }
             }
 
-
             @Override
             public void onError(Throwable t) {
                 consumers.remove(thisConsumer);
-                LOGGER.error("Консьюмер закрылся с ошибкой", t);
+                for (String template : thisConsumer.getTemplates()) {
+                    TemplateMatcherFactory.free(template);
+                }
+                //LOGGER.error("Консьюмер закрылся с ошибкой", t);
             }
 
             @Override
             public void onCompleted() {
                 try {
                     consumers.remove(thisConsumer);
+                    for (String template : thisConsumer.getTemplates()) {
+                        TemplateMatcherFactory.free(template);
+                    }
                     responseObserver.onCompleted();
                 } catch (Exception e) {
                     LOGGER.error("Консьюмер закрылся с ошибкой (onCompleted)", e);

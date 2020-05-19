@@ -1,6 +1,7 @@
 package rtk_contest;
 
 import org.junit.jupiter.api.Test;
+import rtk_contest.templating.TemplateMatcher;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;

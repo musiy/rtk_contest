@@ -1,4 +1,4 @@
-package rtk_contest;
+package rtk_contest.client;
 
 import com.google.protobuf.ByteString;
 import io.grpc.ManagedChannel;

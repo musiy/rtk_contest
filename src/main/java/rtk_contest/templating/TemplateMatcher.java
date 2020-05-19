@@ -1,4 +1,4 @@
-package rtk_contest;
+package rtk_contest.templating;
 
 public class TemplateMatcher {
 

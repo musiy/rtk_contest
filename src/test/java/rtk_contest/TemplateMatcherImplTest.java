@@ -1,16 +1,16 @@
 package rtk_contest;
 
 import org.junit.jupiter.api.Test;
-import rtk_contest.templating.TemplateMatcher;
+import rtk_contest.templating.TemplateMatcherImpl;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class TemplateMatcherTest {
+class TemplateMatcherImplTest {
 
     @Test
     void test_repeated() {
-        TemplateMatcher templateMatcher = new TemplateMatcher("#.3.*");
+        TemplateMatcherImpl templateMatcher = new TemplateMatcherImpl("#.3.*");
         assertTrue(templateMatcher.matchTo("3.3.3.3"));
         assertTrue(templateMatcher.matchTo("3.3"));
         assertFalse(templateMatcher.matchTo("4.3"));
@@ -19,7 +19,7 @@ class TemplateMatcherTest {
 
     @Test
     void test_h() {
-        TemplateMatcher templateMatcher = new TemplateMatcher("#");
+        TemplateMatcherImpl templateMatcher = new TemplateMatcherImpl("#");
         assertTrue(templateMatcher.matchTo("one"));
         assertTrue(templateMatcher.matchTo("one.two"));
         assertTrue(templateMatcher.matchTo("one.two.three"));
@@ -27,7 +27,7 @@ class TemplateMatcherTest {
 
     @Test
     void test_s() {
-        TemplateMatcher templateMatcher = new TemplateMatcher("*");
+        TemplateMatcherImpl templateMatcher = new TemplateMatcherImpl("*");
         assertTrue(templateMatcher.matchTo("one"));
         assertTrue(templateMatcher.matchTo("two"));
         assertFalse(templateMatcher.matchTo("one.two"));
@@ -35,7 +35,7 @@ class TemplateMatcherTest {
 
     @Test
     void test_one_s() {
-        TemplateMatcher templateMatcher = new TemplateMatcher("one.*");
+        TemplateMatcherImpl templateMatcher = new TemplateMatcherImpl("one.*");
         assertTrue(templateMatcher.matchTo("one.two"));
         assertTrue(templateMatcher.matchTo("one.three"));
         assertTrue(templateMatcher.matchTo("one.four"));
@@ -46,7 +46,7 @@ class TemplateMatcherTest {
 
     @Test
     void test_one_h() {
-        TemplateMatcher templateMatcher = new TemplateMatcher("one.#");
+        TemplateMatcherImpl templateMatcher = new TemplateMatcherImpl("one.#");
         assertTrue(templateMatcher.matchTo("one"));
         assertTrue(templateMatcher.matchTo("one.two"));
         assertTrue(templateMatcher.matchTo("one.two.three"));
@@ -56,7 +56,7 @@ class TemplateMatcherTest {
 
     @Test
     void test_s_one() {
-        TemplateMatcher templateMatcher = new TemplateMatcher("*.one");
+        TemplateMatcherImpl templateMatcher = new TemplateMatcherImpl("*.one");
         assertTrue(templateMatcher.matchTo("one.one"));
         assertTrue(templateMatcher.matchTo("two.one"));
         assertTrue(templateMatcher.matchTo("two.one"));
@@ -68,7 +68,7 @@ class TemplateMatcherTest {
 
     @Test
     void test_h_one() {
-        TemplateMatcher templateMatcher = new TemplateMatcher("#.one");
+        TemplateMatcherImpl templateMatcher = new TemplateMatcherImpl("#.one");
         assertTrue(templateMatcher.matchTo("one"));
         assertTrue(templateMatcher.matchTo("two.one"));
         assertTrue(templateMatcher.matchTo("three.two.one"));
@@ -78,7 +78,7 @@ class TemplateMatcherTest {
 
     @Test
     void test_one_s_two() {
-        TemplateMatcher templateMatcher = new TemplateMatcher("one.*.two");
+        TemplateMatcherImpl templateMatcher = new TemplateMatcherImpl("one.*.two");
         assertTrue(templateMatcher.matchTo("one.three.two"));
         assertTrue(templateMatcher.matchTo("one.four.two"));
         assertTrue(templateMatcher.matchTo("one.five.two"));
@@ -88,7 +88,7 @@ class TemplateMatcherTest {
 
     @Test
     void test_one_h_two() {
-        TemplateMatcher templateMatcher = new TemplateMatcher("one.#.two");
+        TemplateMatcherImpl templateMatcher = new TemplateMatcherImpl("one.#.two");
         assertTrue(templateMatcher.matchTo("one.two"));
         assertTrue(templateMatcher.matchTo("one.three.two"));
         assertTrue(templateMatcher.matchTo("one.three.four.two"));
@@ -97,7 +97,7 @@ class TemplateMatcherTest {
 
     @Test
     void test_one_s_s_two() {
-        TemplateMatcher templateMatcher = new TemplateMatcher("one.*.*.two");
+        TemplateMatcherImpl templateMatcher = new TemplateMatcherImpl("one.*.*.two");
         assertTrue(templateMatcher.matchTo("one.three.four.two"));
         assertTrue(templateMatcher.matchTo("one.five.six.two"));
         assertFalse(templateMatcher.matchTo("one.three.two"));
@@ -106,7 +106,7 @@ class TemplateMatcherTest {
 
     @Test
     void test_one_s_two_s() {
-        TemplateMatcher templateMatcher = new TemplateMatcher("one.*.two.*");
+        TemplateMatcherImpl templateMatcher = new TemplateMatcherImpl("one.*.two.*");
         assertTrue(templateMatcher.matchTo("one.three.two.four"));
         assertTrue(templateMatcher.matchTo("one.four.two.five"));
         assertFalse(templateMatcher.matchTo("one.three.four"));
@@ -116,7 +116,7 @@ class TemplateMatcherTest {
 
     @Test
     void test_one_h_two_s() {
-        TemplateMatcher templateMatcher = new TemplateMatcher("one.#.two.*");
+        TemplateMatcherImpl templateMatcher = new TemplateMatcherImpl("one.#.two.*");
         assertTrue(templateMatcher.matchTo("one.two.three"));
         assertTrue(templateMatcher.matchTo("one.three.two.four"));
         assertTrue(templateMatcher.matchTo("one.three.four.two.five"));

@@ -50,7 +50,6 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
                 // равномерно распределяем нагрузку по тредам
                 int idx = (int) (threadPointer.incrementAndGet() % THREADS_NUM_TO_PROCEED_INBOX);
                 threads[idx].addMessage(new InboxRequestInfo(request.getKey(), request.getPayload()));
-                threads[idx].anotify();
             }
 
             @Override

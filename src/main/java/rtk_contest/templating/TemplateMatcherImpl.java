@@ -30,15 +30,12 @@ public class TemplateMatcherImpl implements TemplateMatcher {
      * @return
      */
     private boolean internalMatch(int templateCompsPos, String[] keyComps, int keyCompsPos) {
+        if ((templateCompsPos == templateComps.length - 1)
+            && (templateComps[templateCompsPos].equals("#"))) {
+            return true;
+        }
         if (keyCompsPos == keyComps.length) {
-            if (templateCompsPos == templateComps.length) {
-                return true;
-            }
-            if ((templateCompsPos == templateComps.length - 1)
-                && (templateComps[templateCompsPos].equals("#"))) {
-                return true;
-            }
-            return false;
+            return templateCompsPos == templateComps.length;
         }
         if (templateCompsPos == templateComps.length) {
             return false;

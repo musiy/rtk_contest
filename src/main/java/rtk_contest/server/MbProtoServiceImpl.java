@@ -6,6 +6,8 @@ import mbproto.MessageBrokerGrpc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -28,10 +30,12 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
     @SuppressWarnings("FieldCanBeLocal")
     private final IncomeMessageProcessor[] threads;
 
+    private final BlockingQueue<InboxRequestInfo> queue = new ArrayBlockingQueue<>(1_000_000);
+
     public MbProtoServiceImpl() {
         threads = new IncomeMessageProcessor[THREADS_NUM_TO_PROCEED_INBOX];
         for (int i = 0; i < THREADS_NUM_TO_PROCEED_INBOX; i++) {
-            IncomeMessageProcessor thread = new IncomeMessageProcessor(consumers);
+            IncomeMessageProcessor thread = new IncomeMessageProcessor(consumers, queue);
             thread.start();
             threads[i] = thread;
         }
@@ -45,8 +49,7 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
             @Override
             public void onNext(Mbproto.ProduceRequest request) {
                 // равномерно распределяем нагрузку по тредам
-                int idx = (int) (threadPointer.incrementAndGet() % THREADS_NUM_TO_PROCEED_INBOX);
-                threads[idx].addMessage(new InboxRequestInfo(request.getKey(), request.getPayload()));
+                queue.add(new InboxRequestInfo(request.getKey(), request.getPayload()));
             }
 
             @Override

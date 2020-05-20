@@ -1,7 +1,6 @@
-package rtk_contest;
+package rtk_contest.templating;
 
 import org.junit.jupiter.api.Test;
-import rtk_contest.templating.TemplateMatcherImpl;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -10,11 +9,13 @@ class TemplateMatcherImplTest {
 
     @Test
     void test_repeated() {
+        long t0 = System.nanoTime();
         TemplateMatcherImpl templateMatcher = new TemplateMatcherImpl("#.3.*");
-        assertTrue(templateMatcher.matchTo("3.3.3.3"));
-        assertTrue(templateMatcher.matchTo("3.3"));
-        assertFalse(templateMatcher.matchTo("4.3"));
-        assertFalse(templateMatcher.matchTo("3.4.4"));
+        templateMatcher.matchTo("3.3.3.3");
+        templateMatcher.matchTo("3.3");
+        templateMatcher.matchTo("4.3");
+        templateMatcher.matchTo("3.4.4");
+        System.out.println(System.nanoTime() - t0);
     }
 
     @Test

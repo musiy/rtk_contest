@@ -2,5 +2,5 @@ package rtk_contest.templating;
 
 public interface TemplateMatcher {
 
-    boolean matchTo(String key);
+    boolean matchTo(String[] keyComps);
 }

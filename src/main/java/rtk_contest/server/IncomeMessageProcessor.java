@@ -3,8 +3,7 @@ package rtk_contest.server;
 import mbproto.Mbproto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import rtk_contest.templating.TemplateMatcher;
-import rtk_contest.templating.TemplateMatcherFactory;
+import rtk_contest.templating.StringHelper;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -18,7 +17,7 @@ public class IncomeMessageProcessor extends Thread {
     private final Logger LOGGER = LoggerFactory.getLogger(IncomeMessageProcessor.class);
     private final Logger LOGGER_MESSAGE_PROCESSING = LoggerFactory.getLogger("message.processing");
 
-    static final int MAX_MESSAGE_QUEUE = 700;
+    static final int MAX_MESSAGE_QUEUE = 1200;
 
     // попрог в МС, при первышении которого сообщение не отправляем
     static final int THRESHOLD = 500;
@@ -73,7 +72,9 @@ public class IncomeMessageProcessor extends Thread {
     public void run() {
         int r_pos = 0;
         while (true) {
+            // #################################################################################
             long t0 = System.currentTimeMillis();
+            // #################################################################################
             InboxRequestInfo requestInfo;
 
             while (true) {
@@ -91,24 +92,19 @@ public class IncomeMessageProcessor extends Thread {
                 }
             }
 
+            // #################################################################################
             long t1 = System.currentTimeMillis();
+            // #################################################################################
+
             Mbproto.ConsumeResponse response = Mbproto.ConsumeResponse.newBuilder()
                     .setKey(requestInfo.key)
                     .setPayload(requestInfo.value)
                     .build();
-            int cnt = 0;
+            String[] keyComps = StringHelper.split(requestInfo.key);
 
             List<ConsumerData> toDelete = new LinkedList<>();
             for (ConsumerData consumer : consumers) {
-                boolean matchFound = false;
-                for (String template : consumer.getTemplates()) {
-                    TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(template);
-                    if (templateMatcher.matchTo(requestInfo.key)) {
-                        matchFound = true;
-                        cnt++;
-                        break;
-                    }
-                }
+                boolean matchFound = consumer.matchToKey(keyComps);
                 if (matchFound) {
                     try {
                         consumer.onNext(response);
@@ -121,15 +117,12 @@ public class IncomeMessageProcessor extends Thread {
 
             for (ConsumerData consumer : toDelete) {
                 consumers.remove(consumer);
-                for (String template : consumer.getTemplates()) {
-                    TemplateMatcherFactory.free(template);
-                }
             }
 
-            long t2 = System.currentTimeMillis();
             // ######################################################################################3
-            if (t2 - t1 > 50) {
-                LOGGER_MESSAGE_PROCESSING.info(String.format("wait: %d, proc: %d, mf: %d", t1 - t0, t2 - t1, cnt));
+            long t2 = System.currentTimeMillis();
+            if (t2 - t0 > 20) {
+                LOGGER_MESSAGE_PROCESSING.info(String.format("wait: %d, proc: %d", t1 - t0, t2 - t1));
             }
             // ######################################################################################3
         }

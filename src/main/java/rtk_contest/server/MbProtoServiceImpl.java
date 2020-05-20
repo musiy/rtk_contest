@@ -5,7 +5,6 @@ import mbproto.Mbproto;
 import mbproto.MessageBrokerGrpc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import rtk_contest.templating.TemplateMatcherFactory;
 
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicLong;
@@ -14,9 +13,7 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
 
     private final Logger LOGGER = LoggerFactory.getLogger(MbProtoServiceImpl.class);
 
-    private final Logger LOGGER_CONSUMER_DATA = LoggerFactory.getLogger("com.consumer.data");
-
-    private static final int THREADS_NUM_TO_PROCEED_INBOX = 8;
+    private static final int THREADS_NUM_TO_PROCEED_INBOX = 4;
 
     private final AtomicLong threadPointer = new AtomicLong();
 
@@ -84,13 +81,6 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
              */
             @Override
             public void onNext(Mbproto.ConsumeRequest consumeRequest) {
-                /// ##################################################################################
-                String templates = "";
-                for (int i = 0; i < consumeRequest.getKeysCount(); i++) {
-                    templates += consumeRequest.getKeys(i);
-                }
-                LOGGER_CONSUMER_DATA.info(String.format("consumer req: [%d:%s]", consumeRequest.getActionValue(), templates));
-                /// ##################################################################################
                 for (int i = 0; i < consumeRequest.getKeysCount(); i++) {
                     // 1. добавляем шаблоны консьюмеру
                     String template = consumeRequest.getKeys(i);
@@ -106,9 +96,6 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
             @Override
             public void onError(Throwable t) {
                 consumers.remove(thisConsumer);
-                for (String template : thisConsumer.getTemplates()) {
-                    TemplateMatcherFactory.free(template);
-                }
                 //LOGGER.error("Консьюмер закрылся с ошибкой", t);
             }
 
@@ -116,9 +103,6 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
             public void onCompleted() {
                 try {
                     consumers.remove(thisConsumer);
-                    for (String template : thisConsumer.getTemplates()) {
-                        TemplateMatcherFactory.free(template);
-                    }
                     responseObserver.onCompleted();
                 } catch (Exception e) {
                     LOGGER.error("Консьюмер закрылся с ошибкой (onCompleted)", e);

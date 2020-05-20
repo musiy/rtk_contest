@@ -9,15 +9,14 @@ import org.slf4j.LoggerFactory;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase {
 
     private final Logger LOGGER = LoggerFactory.getLogger(MbProtoServiceImpl.class);
 
     private static final int THREADS_NUM_TO_PROCEED_INBOX = 4;
-
-    private final AtomicLong threadPointer = new AtomicLong();
 
     /**
      * Список всех потребителей.
@@ -28,16 +27,14 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
      * Пул потоков для обработки входящих сообщений
      */
     @SuppressWarnings("FieldCanBeLocal")
-    private final IncomeMessageProcessor[] threads;
+    private final ExecutorService executorService;
 
-    private final BlockingQueue<InboxRequestInfo> queue = new ArrayBlockingQueue<>(1_000_000);
+    private final BlockingQueue<InboxRequestInfo> queue = new ArrayBlockingQueue<>(100_000);
 
     public MbProtoServiceImpl() {
-        threads = new IncomeMessageProcessor[THREADS_NUM_TO_PROCEED_INBOX];
+        executorService = Executors.newFixedThreadPool(THREADS_NUM_TO_PROCEED_INBOX);
         for (int i = 0; i < THREADS_NUM_TO_PROCEED_INBOX; i++) {
-            IncomeMessageProcessor thread = new IncomeMessageProcessor(consumers, queue);
-            thread.start();
-            threads[i] = thread;
+            executorService.submit(new IncomeMessageProcessor(consumers, queue));
         }
     }
 

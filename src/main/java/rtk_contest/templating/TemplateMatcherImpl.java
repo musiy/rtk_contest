@@ -64,10 +64,6 @@ public class TemplateMatcherImpl implements TemplateMatcher {
         return false;
     }
 
-    public String getTemplate() {
-        return template;
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

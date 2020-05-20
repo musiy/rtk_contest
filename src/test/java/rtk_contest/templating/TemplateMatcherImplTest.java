@@ -8,14 +8,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TemplateMatcherImplTest {
 
     @Test
+    void test() {
+        TemplateMatcherImpl templateMatcher = new TemplateMatcherImpl("*.*.*");
+        assertFalse(templateMatcher.matchTo("1.2.3.4"));
+    }
+
+    @Test
     void test_repeated() {
-        long t0 = System.nanoTime();
         TemplateMatcherImpl templateMatcher = new TemplateMatcherImpl("#.3.*");
-        templateMatcher.matchTo("3.3.3.3");
-        templateMatcher.matchTo("3.3");
-        templateMatcher.matchTo("4.3");
-        templateMatcher.matchTo("3.4.4");
-        System.out.println(System.nanoTime() - t0);
+        assertTrue(templateMatcher.matchTo("3.3.3.3"));
+        assertTrue(templateMatcher.matchTo("3.3"));
+        assertFalse(templateMatcher.matchTo("4.3"));
+        assertFalse(templateMatcher.matchTo("3.4.4"));
     }
 
     @Test

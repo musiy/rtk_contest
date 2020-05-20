@@ -13,12 +13,8 @@ import java.util.concurrent.ConcurrentSkipListSet;
 public class IncomeMessageProcessor extends Thread {
 
     private final Logger LOGGER = LoggerFactory.getLogger(IncomeMessageProcessor.class);
-    private final Logger LOGGER_MESSAGE_PROCESSING = LoggerFactory.getLogger("message.processing");
-
-    static final int MAX_MESSAGE_QUEUE = 1200;
 
     private final ConcurrentSkipListSet<ConsumerData> consumers;
-
     private final BlockingQueue<InboxRequestInfo> bqueue;
 
     public IncomeMessageProcessor(ConcurrentSkipListSet<ConsumerData> consumers, BlockingQueue<InboxRequestInfo> bqueue) {
@@ -29,9 +25,6 @@ public class IncomeMessageProcessor extends Thread {
     @Override
     public void run() {
         while (true) {
-            // #################################################################################
-            long t0 = System.currentTimeMillis();
-            // #################################################################################
             InboxRequestInfo requestInfo;
             try {
                 requestInfo = bqueue.take();
@@ -39,10 +32,6 @@ public class IncomeMessageProcessor extends Thread {
                 e.printStackTrace();
                 continue;
             }
-
-            // #################################################################################
-            long t1 = System.currentTimeMillis();
-            // #################################################################################
 
             Mbproto.ConsumeResponse response = Mbproto.ConsumeResponse.newBuilder()
                     .setKey(requestInfo.key)
@@ -66,13 +55,6 @@ public class IncomeMessageProcessor extends Thread {
             for (ConsumerData consumer : toDelete) {
                 consumers.remove(consumer);
             }
-
-            // ######################################################################################3
-            long t2 = System.currentTimeMillis();
-            if (t2 - t0 > 20) {
-                LOGGER_MESSAGE_PROCESSING.info(String.format("wait: %d, proc: %d", t1 - t0, t2 - t1));
-            }
-            // ######################################################################################3
         }
     }
 }

@@ -72,8 +72,8 @@ class ConsumerData implements Comparable<ConsumerData> {
     }
 
     public boolean matchToKey(String[] keyComps) {
-        for (String comps : keyComps) {
-            Set<TemplateMatcher> templateMatchers = templatesHasWords.get(comps);
+        for (String comp : keyComps) {
+            Set<TemplateMatcher> templateMatchers = templatesHasWords.get(comp);
             if (templateMatchers != null) {
                 for (TemplateMatcher matcher : templateMatchers) {
                     if (matcher.matchTo(keyComps)) {

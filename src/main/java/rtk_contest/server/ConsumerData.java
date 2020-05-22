@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 class ConsumerData implements Comparable<ConsumerData> {
 
     static final AtomicInteger CONSUMER_ENUMERATOR = new AtomicInteger(1);
+
     /**
      * порядковый номер потребителя
      */
@@ -90,7 +91,11 @@ class ConsumerData implements Comparable<ConsumerData> {
         return false;
     }
 
-    public void onNext(Mbproto.ConsumeResponse response) {
+    public int getNum() {
+        return num;
+    }
+
+    public synchronized void onNext(Mbproto.ConsumeResponse response) {
         responseObserver.onNext(response);
     }
 

@@ -22,7 +22,6 @@ public class TemplateMatcherImpl implements TemplateMatcher {
         this.templateComps = StringHelper.split(template);
     }
 
-
     // todo только для теста
     boolean matchTo(String key) {
         return matchTo(StringHelper.split(key));

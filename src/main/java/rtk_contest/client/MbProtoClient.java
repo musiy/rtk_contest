@@ -73,7 +73,7 @@ public class MbProtoClient {
         @Override
         public void run() {
 
-            StreamObserver<Mbproto.ConsumeResponse> responseObserver = new StreamObserver<>() {
+            StreamObserver<Mbproto.ConsumeResponse> responseObserver = new StreamObserver<Mbproto.ConsumeResponse>() {
                 @Override
                 public void onNext(Mbproto.ConsumeResponse summary) {
                     System.out.println(String.format("\n ===========================\nПришло сообщение: [%s:%s]", summary.getKey(),
@@ -139,7 +139,7 @@ public class MbProtoClient {
         @Override
         public void run() {
 
-            StreamObserver<Mbproto.ProduceResponse> responseObserver = new StreamObserver<>() {
+            StreamObserver<Mbproto.ProduceResponse> responseObserver = new StreamObserver<Mbproto.ProduceResponse>() {
                 @Override
                 public void onNext(Mbproto.ProduceResponse summary) {
                     System.out.println("Прекращение коммуникации.");

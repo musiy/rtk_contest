@@ -6,6 +6,7 @@ import mbproto.MessageBrokerGrpc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentSkipListSet;
@@ -21,7 +22,7 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
     /**
      * Список всех потребителей.
      */
-    private final ConcurrentSkipListSet<ConsumerData> consumers = new ConcurrentSkipListSet<>();
+    private final Set<ConsumerData> consumers = new ConcurrentSkipListSet<>();
 
     /**
      * Пул потоков для обработки входящих сообщений
@@ -29,24 +30,23 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
     @SuppressWarnings("FieldCanBeLocal")
     private final ExecutorService executorService;
 
-    private final BlockingQueue<InboxRequestInfo> queue = new ArrayBlockingQueue<>(100_000);
+    private final BlockingQueue<Handler> queue = new ArrayBlockingQueue<>(100_000);
 
     public MbProtoServiceImpl() {
         executorService = Executors.newFixedThreadPool(THREADS_NUM_TO_PROCEED_INBOX);
         for (int i = 0; i < THREADS_NUM_TO_PROCEED_INBOX; i++) {
-            executorService.submit(new IncomeMessageProcessor(consumers, queue));
+            executorService.submit(new Processor(queue));
         }
     }
 
     public StreamObserver<Mbproto.ProduceRequest> produce(
             StreamObserver<Mbproto.ProduceResponse> responseObserver) {
 
-        return new StreamObserver<>() {
+        return new StreamObserver<Mbproto.ProduceRequest>() {
 
             @Override
             public void onNext(Mbproto.ProduceRequest request) {
-                // равномерно распределяем нагрузку по тредам
-                queue.add(new InboxRequestInfo(request.getKey(), request.getPayload()));
+                queue.add(new IncomeMessageHandler(consumers, request.getKey(), request.getPayload()));
             }
 
             @Override
@@ -74,23 +74,16 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
         // добавим консьюмера в список
         consumers.add(thisConsumer);
 
-        return new StreamObserver<>() {
+        return new StreamObserver<Mbproto.ConsumeRequest>() {
 
-            /**
-             * Попробуем сделать синхронно, надеемся что вызывают не очень часто
-             */
             @Override
             public void onNext(Mbproto.ConsumeRequest consumeRequest) {
+                String[] templates = new String[consumeRequest.getKeysCount()];
                 for (int i = 0; i < consumeRequest.getKeysCount(); i++) {
-                    // 1. добавляем шаблоны консьюмеру
-                    String template = consumeRequest.getKeys(i);
-
-                    if (consumeRequest.getActionValue() == 0) { // SUBSCRIBE
-                        thisConsumer.addTemplate(template);
-                    } else {
-                        thisConsumer.removeTemplate(template);
-                    }
+                    templates[i] = consumeRequest.getKeys(i);
                 }
+                Handler handler = new ChangeSubscriptionHandler(thisConsumer, consumeRequest.getActionValue(), templates);
+                queue.add(handler);
             }
 
             @Override

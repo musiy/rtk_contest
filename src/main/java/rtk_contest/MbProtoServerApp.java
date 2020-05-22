@@ -20,6 +20,8 @@ public class MbProtoServerApp {
         /* The port on which the server should run */
         server = ServerBuilder.forPort(port)
                 .addService(new MbProtoServiceImpl())
+                .maxInboundMessageSize(100 * 1_024 * 1_024)
+                .maxInboundMetadataSize(100 * 1_024 * 1_024)
                 .build()
                 .start();
         System.out.println("Server started, listening on " + port);

@@ -5,11 +5,7 @@
         </encoder>
     </appender>
 
-    <logger name="com.producer.data" level="WARN"/>
-    <logger name="com.consumer.data" level="WARN"/>
-    <logger name="message.processing" level="INFO"/>
-
-    <root level="info">
+    <root level="INFO">
         <appender-ref ref="STDOUT"/>
     </root>
 </configuration>

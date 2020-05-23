@@ -5,7 +5,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.BlockingQueue;
 
-public class Processor extends Thread {
+public class Processor implements Runnable {
 
     private final Logger LOGGER = LoggerFactory.getLogger(Processor.class);
 

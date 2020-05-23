@@ -3,11 +3,12 @@ package rtk_contest.server;
 import com.google.common.collect.Sets;
 import io.grpc.stub.StreamObserver;
 import mbproto.Mbproto;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import rtk_contest.templating.StringHelper;
 import rtk_contest.templating.TemplateMatcher;
 import rtk_contest.templating.TemplateMatcherImpl;
 
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -16,6 +17,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Класс описывает потребителя - его стрим и шаблоны на которые он подписан.
  */
 class ConsumerData implements Comparable<ConsumerData> {
+
+    private Logger logger = LoggerFactory.getLogger(ConsumerData.class);
 
     static final AtomicInteger CONSUMER_ENUMERATOR = new AtomicInteger(1);
 
@@ -26,11 +29,12 @@ class ConsumerData implements Comparable<ConsumerData> {
     /**
      * Стрим для отправки данных консюмеру
      */
-    private final StreamObserver<Mbproto.ConsumeResponse> responseObserver;
+    final StreamObserver<Mbproto.ConsumeResponse> responseObserver;
     /**
      * Набор шаблонов консюмера в которых есть слова (можно быстро отфильтровать)
      */
-    private final Map<String, Set<TemplateMatcher>> templatesHasWords = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Set<TemplateMatcher>> templatesHasWords = new ConcurrentHashMap<>();
+
     /**
      * Набор шаблонов консюмера в которых нет слов (например, #.*) - такие придется перебирать всегда
      */
@@ -66,6 +70,12 @@ class ConsumerData implements Comparable<ConsumerData> {
                 Set<TemplateMatcher> templateMatchers = templatesHasWords.get(comp);
                 if (templateMatchers != null) {
                     templateMatchers.remove(templateMatcher);
+                    if (templateMatchers.isEmpty()) {
+                        Set<TemplateMatcher> deleted = templatesHasWords.remove(comp);
+                        if(!deleted.isEmpty()) {
+                            logger.error("Удалили не пустой набор матчеров!");
+                        }
+                    }
                 }
             }
         }
@@ -93,10 +103,6 @@ class ConsumerData implements Comparable<ConsumerData> {
 
     public int getNum() {
         return num;
-    }
-
-    public synchronized void onNext(Mbproto.ConsumeResponse response) {
-        responseObserver.onNext(response);
     }
 
     @Override

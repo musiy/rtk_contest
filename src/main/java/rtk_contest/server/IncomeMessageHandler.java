@@ -27,13 +27,16 @@ public class IncomeMessageHandler implements Handler {
     public void handle() {
         String[] keyComps = StringHelper.split(key);
 
+        Mbproto.ConsumeResponse response = null;
         for (ConsumerData consumer : consumers) {
-            if (consumer.matchToKey(keyComps)) {
+            if (consumer.getTemplateManager().matchToKey(key, keyComps)) {
                 //logger.info(String.format("Отправлено [%d]: %s", consumer.num, key));
-                Mbproto.ConsumeResponse response = Mbproto.ConsumeResponse.newBuilder()
-                        .setKey(key)
-                        .setPayload(payload)
-                        .build();
+                if (response == null) {
+                    response = Mbproto.ConsumeResponse.newBuilder()
+                            .setKey(key)
+                            .setPayload(payload)
+                            .build();
+                }
                 streamQueue.add(new OutputStreamProcessor.Addressing(consumer, response));
             }
         }

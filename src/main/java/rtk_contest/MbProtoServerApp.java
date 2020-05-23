@@ -21,7 +21,7 @@ public class MbProtoServerApp {
         /* The port on which the server should run */
         server = ServerBuilder.forPort(port)
                 .addService(new MbProtoServiceImpl())
-                .executor(Executors.newFixedThreadPool(4))
+                .executor(Executors.newFixedThreadPool(1))
                 .build()
                 .start();
         System.out.println("Server started, listening on " + port);

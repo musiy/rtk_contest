@@ -23,7 +23,7 @@ public class TemplateMatcherImpl implements TemplateMatcher {
     }
 
     // todo только для теста
-    boolean matchTo(String key) {
+    public boolean matchTo(String key) {
         return matchTo(StringHelper.split(key));
     }
 

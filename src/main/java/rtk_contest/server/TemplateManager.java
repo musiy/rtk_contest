@@ -5,7 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import rtk_contest.templating.StringHelper;
 import rtk_contest.templating.TemplateMatcher;
-import rtk_contest.templating.TemplateMatcherImpl;
+import rtk_contest.templating.TemplateMatcherFactory;
 
 import java.util.Map;
 import java.util.Set;
@@ -66,7 +66,7 @@ public class TemplateManager {
             hasTemplatesWithoutWordsStarsOnly = true;
         } else {
             // смешанные шаблоны - есть и слова и спец. символы
-            TemplateMatcher templateMatcher = new TemplateMatcherImpl(template, comps);
+            TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(template, comps);
             for (String comp : comps) {
                 if ('#' == comp.charAt(0) || '*' == comp.charAt(0)) {
                     // ничего не делаем, это спец. символ
@@ -125,7 +125,7 @@ public class TemplateManager {
             }
             hasTemplatesWithoutWordsStarsOnly = !templatesWithoutWordsStarsOnly.isEmpty();
         } else {
-            TemplateMatcher templateMatcher = new TemplateMatcherImpl(template, comps);
+            TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(template, comps);
             for (String comp : comps) {
                 if ('#' == comp.charAt(0) || '*' == comp.charAt(0)) {
                     // ничего не делаем, это спец. символ

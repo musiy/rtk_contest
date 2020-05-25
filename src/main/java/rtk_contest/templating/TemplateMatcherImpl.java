@@ -15,18 +15,6 @@ public class TemplateMatcherImpl implements TemplateMatcher {
         this.templateComps = templateComps;
     }
 
-    // todo только для теста
-    TemplateMatcherImpl(String template) {
-        // работа со строками - это время и память, работаем с массивом символов шаблона
-        this.template = template;
-        this.templateComps = StringHelper.split(template);
-    }
-
-    // todo только для теста
-    public boolean matchTo(String key) {
-        return matchTo(StringHelper.split(key));
-    }
-
     @Override
     public boolean matchTo(String[] keyComps) {
         int templateCompsPos = 0;
@@ -52,9 +40,9 @@ public class TemplateMatcherImpl implements TemplateMatcher {
         }
         String templateComp = templateComps[templateCompsPos];
         if ("#".equals(templateComp)) {
-            return internalMatch(templateCompsPos, keyComps, keyCompsPos + 1)
-                   || internalMatch(templateCompsPos + 1, keyComps, keyCompsPos)
-                   || internalMatch(templateCompsPos + 1, keyComps, keyCompsPos + 1);
+            return internalMatch(templateCompsPos + 1, keyComps, keyCompsPos)
+                   || internalMatch(templateCompsPos + 1, keyComps, keyCompsPos + 1)
+                   || internalMatch(templateCompsPos, keyComps, keyCompsPos + 1);
         } else if ("*".equals(templateComp)) {
             return internalMatch(templateCompsPos + 1, keyComps, keyCompsPos + 1);
         } else if (keyComps[keyCompsPos].equals(templateComp)) {

@@ -7,9 +7,10 @@ COPY       target/rtk-contest-1.0-SNAPSHOT.jar ./
 EXPOSE     80 9010 1044
 #EXPOSE     80
 CMD        java \
-            -Xms2g \
+            -Xms1g \
             -Xmx2g \
-            -Xlog:gc* \
+#            -XX:+AlwaysPreTouch \
+#            -Xlog:gc* \
             -XX:MaxGCPauseMillis=10 \
 #            # отладка
 #             -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=1044 \

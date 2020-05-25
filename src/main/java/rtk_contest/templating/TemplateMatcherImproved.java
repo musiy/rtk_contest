@@ -1,8 +1,7 @@
 package rtk_contest.templating;
 
-import java.util.Comparator;
-import java.util.PriorityQueue;
-import java.util.Queue;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
 public class TemplateMatcherImproved implements TemplateMatcher {
 
@@ -31,7 +30,7 @@ public class TemplateMatcherImproved implements TemplateMatcher {
         // todo оптимизация - вместо new Integer[]{pos, keyPos, 2}
         //      можно хранить в разрядах int: по байту на число - 3 разряда
 
-        Queue<Integer[]> stack = new PriorityQueue<>(Comparator.comparingInt(o -> o[2]));
+        Deque<Integer[]> stack = new ArrayDeque<>();
 
         int pos = 0;
         int keyPos = 0;
@@ -63,9 +62,9 @@ public class TemplateMatcherImproved implements TemplateMatcher {
             if (comps[pos].charAt(0) == '#') {
                 // режим пропуска - указатель в шаблоне увеличиваем, указатель в ключе оставляем без изменений
                 // съедаем 1-к-1, т.е. рассматриваем '#' как '*'
-                stack.add(new Integer[]{pos + 1, keyPos + 1, 1});
+                stack.addFirst(new Integer[]{pos + 1, keyPos + 1, 1});
                 // расширение до '#.*' (самое дорогое вычисление - отлкадываем)
-                stack.add(new Integer[]{pos, keyPos + 1, 2});
+                stack.addLast(new Integer[]{pos, keyPos + 1, 2});
                 pos++;
             } else if (comps[pos].charAt(0) == '*') {
                 // звезда подходит любому слову

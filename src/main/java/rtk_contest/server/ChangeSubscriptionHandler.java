@@ -1,8 +1,11 @@
 package rtk_contest.server;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class ChangeSubscriptionHandler implements Handler {
 
-    //private final Logger logger = LoggerFactory.getLogger(ChangeSubscriptionHandler.class);
+    private final Logger logger = LoggerFactory.getLogger(ChangeSubscriptionHandler.class);
 
     private final ConsumerData consumer;
     private final int actionValue;

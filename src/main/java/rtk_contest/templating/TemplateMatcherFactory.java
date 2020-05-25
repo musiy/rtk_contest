@@ -13,6 +13,24 @@ public class TemplateMatcherFactory {
     }
 
     static TemplateMatcher internalGetByTemplate(String template, String[] comps) {
+
+        boolean hasWord = false;
+        boolean hasHash = false;
+        int starsCount = 0;
+        for (String comp : comps) {
+            if ('#' == comp.charAt(0)) {
+                hasHash = true;
+            } else if ('*' == comp.charAt(0)) {
+                starsCount++;
+            } else {
+                hasWord = true;
+            }
+        }
+
+        if (!hasWord) {
+            return new SpecTemplateMatcher(template, hasHash, starsCount);
+        }
+
         if (comps.length == 1) {
             if (comps[0].charAt(0) == '#') {
                 return new SingleHashMatcher();
@@ -355,6 +373,27 @@ public class TemplateMatcherFactory {
                 }
             }
             return false;
+        }
+    }
+
+    static class SpecTemplateMatcher extends BaseMatcher {
+
+        private final boolean hasHash;
+        private final int starsCount;
+
+        public SpecTemplateMatcher(String template, boolean hasHash, int starsCount) {
+            super(template);
+            this.hasHash = hasHash;
+            this.starsCount = starsCount;
+        }
+
+        @Override
+        public boolean matchTo(String[] keyComps) {
+            if (hasHash) {
+                return keyComps.length >= starsCount;
+            } else {
+                return keyComps.length == starsCount;
+            }
         }
     }
 

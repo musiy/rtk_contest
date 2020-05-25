@@ -16,56 +16,37 @@ public class TemplateManager {
     private final Logger LOGGER = LoggerFactory.getLogger(ConsumerData.class);
 
     /**
-     * Набор шаблонов где есть только слова
-     */
-    private final Set<String> templatesOnlyWords = Sets.newConcurrentHashSet();
-    /**
-     * Набор шаблонов консюмера в которых есть и слова и спец символы (придется запускать поиск по шаблону)
+     * Набор шаблонов консюмера в которых слова (могу быть и спец символы)
      */
     private final Map<String, Set<TemplateMatcher>> templatesCommon = new ConcurrentHashMap<>();
+
+    private final Set<String> onlyWords = Sets.newConcurrentHashSet();
     /**
-     * Набор шаблонов консюмера _без слов_, в которых есть хотя бы одна решетка '#'- такие подходят
-     * ключам с числом слов >= N, где N - число звёздочек.
+     * Набор шаблонов консюмера _без слов_.
      */
-    private final Map<Integer, Set<String>> templatesWithoutWordsWithHash = new ConcurrentHashMap<>();
-    private volatile boolean hasTemplatesWithoutWordsWithHash = false;
-    /**
-     * Набор шаблонов в которых есть только звёзды
-     */
-    private final Map<Integer, Set<String>> templatesWithoutWordsStarsOnly = new ConcurrentHashMap<>();
-    private volatile boolean hasTemplatesWithoutWordsStarsOnly = false;
+    private final Set<TemplateMatcher> templatesWithoutWords = Sets.newConcurrentHashSet();
+    private volatile boolean hasTemplatesWithoutWords = false;
 
     public void addTemplate(String template) {
         String[] comps = StringHelper.split(template);
 
         boolean hasWords = false;
-        boolean hasHash = false;
-        int starsCount = 0;
+        boolean hasSpec = false;
         for (String comp : comps) {
-            if ('#' == comp.charAt(0)) {
-                hasHash = true;
-            } else if ('*' == comp.charAt(0)) {
-                starsCount++;
+            if ('#' == comp.charAt(0) || '*' == comp.charAt(0)) {
+                hasSpec = true;
             } else {
                 hasWords = true;
             }
         }
 
-        if (hasWords && !hasHash && starsCount == 0) {
-            // содержит только слова
-            templatesOnlyWords.add(template);
-        } else if (!hasWords && hasHash) {
-            // нет слов, но есть хеш (могут быть и звёзды)
-            templatesWithoutWordsWithHash.computeIfAbsent(starsCount, cnt -> Sets.newConcurrentHashSet())
-                    .add(template);
-            hasTemplatesWithoutWordsWithHash = true;
-        } else if (!hasWords && starsCount > 0) {
-            // нет слов, нет хеша, есть звёзды
-            templatesWithoutWordsStarsOnly.computeIfAbsent(comps.length, len -> Sets.newConcurrentHashSet())
-                    .add(template);
-            hasTemplatesWithoutWordsStarsOnly = true;
+        if (hasWords && !hasSpec) {
+            onlyWords.add(template);
+        } else if (!hasWords && hasSpec) {
+            TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(template, comps);
+            templatesWithoutWords.add(templateMatcher);
+            hasTemplatesWithoutWords = true;
         } else {
-            // смешанные шаблоны - есть и слова и спец. символы
             TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(template, comps);
             for (String comp : comps) {
                 if ('#' == comp.charAt(0) || '*' == comp.charAt(0)) {
@@ -83,47 +64,23 @@ public class TemplateManager {
         String[] comps = StringHelper.split(template);
 
         boolean hasWords = false;
-        boolean hasHash = false;
-        int starsCount = 0;
+        boolean hasSpec = false;
         for (String comp : comps) {
-            if ('#' == comp.charAt(0)) {
-                hasHash = true;
-            } else if ('*' == comp.charAt(0)) {
-                starsCount++;
+            if ('#' == comp.charAt(0) || '*' == comp.charAt(0)) {
+                hasSpec = true;
             } else {
                 hasWords = true;
             }
         }
 
-        if (hasWords && !hasHash && starsCount == 0) {
-            // содержит только слова
-            templatesOnlyWords.remove(template);
-        } else if (!hasWords && hasHash) {
-            // нет слов, но есть хеш (могут быть и звёзды)
-            Set<String> templatesWithHash = templatesWithoutWordsWithHash.get(starsCount);
-            if (templatesWithHash != null) {
-                templatesWithHash.remove(template);
-                if (templatesWithHash.isEmpty()) {
-                    Set<String> deleted = templatesWithoutWordsWithHash.remove(starsCount);
-                    if (!deleted.isEmpty()) {
-                        LOGGER.error("Удалили не пустой набор матчеров! " + template);
-                    }
-                }
+        if (hasWords && !hasSpec) {
+            onlyWords.remove(template);
+        } else if (!hasWords && hasSpec) {
+            TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(template, comps);
+            templatesWithoutWords.remove(templateMatcher);
+            if (templatesWithoutWords.isEmpty()) {
+                hasTemplatesWithoutWords = false;
             }
-            hasTemplatesWithoutWordsWithHash = !templatesWithoutWordsWithHash.isEmpty();
-        } else if (!hasWords && starsCount > 0) {
-            // нет слов, нет хеша, есть звёзды
-            Set<String> templatesStarsOnly = templatesWithoutWordsStarsOnly.get(comps.length);
-            if (templatesStarsOnly != null) {
-                templatesStarsOnly.remove(template);
-                if (templatesStarsOnly.isEmpty()) {
-                    Set<String> deleted = templatesWithoutWordsStarsOnly.remove(comps.length);
-                    if (!deleted.isEmpty()) {
-                        LOGGER.error("Удалили не пустой набор матчеров! " + template);
-                    }
-                }
-            }
-            hasTemplatesWithoutWordsStarsOnly = !templatesWithoutWordsStarsOnly.isEmpty();
         } else {
             TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(template, comps);
             for (String comp : comps) {
@@ -147,28 +104,7 @@ public class TemplateManager {
 
     public boolean matchToKey(String key, String[] comps) {
 
-        /**
-         * Шаблоны без слов, в которых есть символ решётки.
-         * В таких ключём выступает число звёзд - минимальное число слов.
-         * Так если передан ключ 1.2.3.4, то ему подходят любые шаблоны,
-         * с числом звёзд меньшим или равным 4:
-         * #, #.*, #.*.*, #.*.*, #.*.*.*, #.*.*.*.*
-         *
-         */
-        if (hasTemplatesWithoutWordsWithHash) {
-            for (int i = 0; i <= comps.length; i++) {
-                if (templatesWithoutWordsWithHash.get(i) != null) {
-                    return true;
-                }
-            }
-        }
-
-        if (templatesOnlyWords.contains(key)) {
-            return true;
-        }
-
-        if (hasTemplatesWithoutWordsStarsOnly &&
-            templatesWithoutWordsStarsOnly.containsKey(comps.length)) {
+        if (onlyWords.contains(key)) {
             return true;
         }
 
@@ -183,6 +119,13 @@ public class TemplateManager {
             }
         }
 
+        if (hasTemplatesWithoutWords) {
+            for (TemplateMatcher templateMatcher : templatesWithoutWords) {
+                if (templateMatcher.matchTo(comps)) {
+                    return true;
+                }
+            }
+        }
         return false;
     }
 }

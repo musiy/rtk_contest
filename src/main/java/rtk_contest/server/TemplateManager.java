@@ -32,8 +32,8 @@ public class TemplateManager {
 
         boolean hasWords = false;
         boolean hasSpec = false;
-        for (String comp : comps) {
-            if ('#' == comp.charAt(0) || '*' == comp.charAt(0)) {
+        for (int i = 0; i < comps.length; i++) {
+            if ('#' == comps[i].charAt(0) || '*' == comps[i].charAt(0)) {
                 hasSpec = true;
             } else {
                 hasWords = true;
@@ -48,11 +48,11 @@ public class TemplateManager {
             hasTemplatesWithoutWords = true;
         } else {
             TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(template, comps);
-            for (String comp : comps) {
-                if ('#' == comp.charAt(0) || '*' == comp.charAt(0)) {
+            for (int i = 0; i < comps.length; i++) {
+                if ('#' == comps[i].charAt(0) || '*' == comps[i].charAt(0)) {
                     // ничего не делаем, это спец. символ
                 } else {
-                    templatesCommon.computeIfAbsent(comp, key -> Sets.newConcurrentHashSet())
+                    templatesCommon.computeIfAbsent(comps[i], key -> Sets.newConcurrentHashSet())
                             .add(templateMatcher);
                 }
             }
@@ -65,8 +65,8 @@ public class TemplateManager {
 
         boolean hasWords = false;
         boolean hasSpec = false;
-        for (String comp : comps) {
-            if ('#' == comp.charAt(0) || '*' == comp.charAt(0)) {
+        for (int i = 0; i < comps.length; i++) {
+            if ('#' == comps[i].charAt(0) || '*' == comps[i].charAt(0)) {
                 hasSpec = true;
             } else {
                 hasWords = true;
@@ -83,7 +83,8 @@ public class TemplateManager {
             }
         } else {
             TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(template, comps);
-            for (String comp : comps) {
+            for (int i = 0; i < comps.length; i++) {
+                String comp = comps[i];
                 if ('#' == comp.charAt(0) || '*' == comp.charAt(0)) {
                     // ничего не делаем, это спец. символ
                 } else {
@@ -108,8 +109,8 @@ public class TemplateManager {
             return true;
         }
 
-        for (String comp : comps) {
-            Set<TemplateMatcher> templateMatchers = templatesCommon.get(comp);
+        for (int i = 0; i < comps.length; i++) {
+            Set<TemplateMatcher> templateMatchers = templatesCommon.get(comps[i]);
             if (templateMatchers != null) {
                 for (TemplateMatcher matcher : templateMatchers) {
                     if (matcher.matchTo(comps)) {

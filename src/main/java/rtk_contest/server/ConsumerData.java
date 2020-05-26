@@ -2,10 +2,10 @@ package rtk_contest.server;
 
 import io.grpc.stub.StreamObserver;
 import mbproto.Mbproto;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Класс описывает потребителя - его стрим и шаблоны на которые он подписан.
@@ -22,6 +22,8 @@ class ConsumerData implements Comparable<ConsumerData> {
      * Стрим для отправки данных консюмеру
      */
     final StreamObserver<Mbproto.ConsumeResponse> responseObserver;
+
+    final Lock lock = new ReentrantLock();
 
     private final TemplateManager templateManager = new TemplateManager();
 
@@ -51,5 +53,11 @@ class ConsumerData implements Comparable<ConsumerData> {
     @Override
     public int compareTo(ConsumerData that) {
         return that.num - num;
+    }
+
+    public void send(Mbproto.ConsumeResponse response) {
+        lock.lock();
+        responseObserver.onNext(response);
+        lock.unlock();
     }
 }

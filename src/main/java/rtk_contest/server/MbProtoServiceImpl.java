@@ -29,20 +29,14 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
      */
     @SuppressWarnings("FieldCanBeLocal")
     private final ExecutorService executorService;
-    @SuppressWarnings("FieldCanBeLocal")
-    private final ExecutorService streamExecutorService;
 
     private final BlockingQueue<Handler> queue = new ArrayBlockingQueue<>(30_000);
-
-    private final BlockingQueue<OutputStreamProcessor.Addressing> streamQueue = new ArrayBlockingQueue<>(50_000);
 
     public MbProtoServiceImpl() {
         executorService = Executors.newFixedThreadPool(THREADS_NUM_TO_PROCEED_INBOX);
         for (int i = 0; i < THREADS_NUM_TO_PROCEED_INBOX; i++) {
             executorService.submit(new Processor(queue));
         }
-        streamExecutorService = Executors.newFixedThreadPool(1);
-        streamExecutorService.submit(new OutputStreamProcessor(streamQueue, consumers));
     }
 
     public StreamObserver<Mbproto.ProduceRequest> produce(
@@ -52,7 +46,7 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
 
             @Override
             public void onNext(Mbproto.ProduceRequest request) {
-                queue.add(new IncomeMessageHandler(consumers, streamQueue, request.getKey(), request.getPayload()));
+                queue.add(new IncomeMessageHandler(consumers, request.getKey(), request.getPayload()));
             }
 
             @Override

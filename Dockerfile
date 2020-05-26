@@ -1,20 +1,18 @@
-FROM openjdk:11.0.7-slim-buster
+FROM centos:7
+FROM store/oracle/jdk:11
 
 WORKDIR    /app
-RUN        apt-get update && apt-get install -y iputils-ping telnet procps
 
 COPY       target/rtk-contest-1.0-SNAPSHOT.jar ./
-EXPOSE     80 9010 1044
-#EXPOSE     80
+#EXPOSE     80 9010 1044
+EXPOSE     80
+
 CMD        java \
             -Xms1g \
-            -Xmx2g \
-#            -XX:+AlwaysPreTouch \
+            -Xmx1.8g \
+            -XX:+AlwaysPreTouch \
 #            -Xlog:gc* \
             -XX:MaxGCPauseMillis=10 \
-#            # отладка
-#             -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=1044 \
-#             -XX:+PrintFlagsFinal \
             -XX:+UseContainerSupport \
             -XX:ActiveProcessorCount=4 \
             -Dio.grpc.netty.shaded.io.netty.availableProcessors=4 \

@@ -7,7 +7,7 @@ public class TemplateMatcherFactory {
     public static TemplateMatcher getByTemplate(String template, String[] comps) {
         TemplateMatcher templateMatcher = internalGetByTemplate(template, comps);
         if (templateMatcher == null) {
-            templateMatcher = new TemplateMatcherImpl(template, comps);
+            templateMatcher = new TemplateMatcherImproved(template, comps);
         }
         return templateMatcher;
     }

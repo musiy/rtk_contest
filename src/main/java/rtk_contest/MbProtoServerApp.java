@@ -18,6 +18,10 @@ public class MbProtoServerApp {
     }
 
     private void start() throws IOException {
+        for (int i = 0; i < 50_000_000; i++) {
+            new Object();
+        }
+        Runtime.getRuntime().gc();
         /* The port on which the server should run */
         server = ServerBuilder.forPort(port)
                 .addService(new MbProtoServiceImpl())

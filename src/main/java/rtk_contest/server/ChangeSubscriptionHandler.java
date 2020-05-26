@@ -19,13 +19,13 @@ public class ChangeSubscriptionHandler implements Handler {
 
     @Override
     public void handle() {
-        for (String template : templates) {
+        for (int i = 0; i < templates.length; i++) {
             if (actionValue == 0) {
                 //logger.info(String.format("Подписка [%d]: ", consumer.getNum()) + template);
-                consumer.getTemplateManager().addTemplate(template);
+                consumer.getTemplateManager().addTemplate(templates[i]);
             } else {
                 //logger.info(String.format("Отписка [%d]: ", consumer.getNum()) + template);
-                consumer.getTemplateManager().removeTemplate(template);
+                consumer.getTemplateManager().removeTemplate(templates[i]);
             }
         }
     }

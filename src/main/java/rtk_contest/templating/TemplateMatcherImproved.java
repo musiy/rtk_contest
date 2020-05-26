@@ -2,17 +2,16 @@ package rtk_contest.templating;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Objects;
 
 public class TemplateMatcherImproved implements TemplateMatcher {
 
+    private final String template;
     private final String[] comps;
 
-    public TemplateMatcherImproved(String[] comps) {
+    public TemplateMatcherImproved(String template, String[] comps) {
+        this.template = template;
         this.comps = comps;
-    }
-
-    public TemplateMatcherImproved(String template) {
-        this.comps = StringHelper.split(template);
     }
 
     @Override
@@ -35,36 +34,46 @@ public class TemplateMatcherImproved implements TemplateMatcher {
         int pos = 0;
         int keyPos = 0;
 
-        // 1 - пропуск (skip) '#'
-        // 2 - сопоставление - как одна зведа '*'
-        // 3 - расширение до '#.*'
-        // начинаем со SKIP, как наиболее дешёвого
-        int mode = 1;
+        boolean takeFromStackOrFail = false;
 
-        do {
+        while (true) {
+            if (takeFromStackOrFail) {
+                Integer[] elem = stack.poll();
+                if (elem == null) {
+                    return false;
+                }
+                pos = elem[0];
+                keyPos = elem[1];
+                takeFromStackOrFail = false;
+            }
+
             // выбрали все компоненты из ключа и шаблона
             if (keyPos == keyComps.length && pos == comps.length) {
                 return true;
             }
-            // если дошёл только один - достаём из очереди и возвращаемся на обработку
-            if (keyPos == keyComps.length || pos == comps.length) {
-                if (pos == comps.length - 1 && comps[pos].charAt(0) == '#') {
-                    return true;
+            // если дошёл указатель по ключу - для матчинга оставшиейся в шаблоне могут быть только решётками
+            if (keyPos == keyComps.length) {
+                boolean allHash = true;
+                for (int i = pos; i < comps.length; i++) {
+                    if (comps[i].charAt(0) != '#') {
+                        allHash = false;
+                        break;
+                    }
                 }
-                Integer[] data = stack.poll();
-                if (data == null) {
-                    return false;
-                }
-                pos = data[0];
-                keyPos = data[1];
+                return allHash;
+            }
+            if (pos == comps.length) {
+                takeFromStackOrFail = true;
                 continue;
             }
+
             if (comps[pos].charAt(0) == '#') {
-                // режим пропуска - указатель в шаблоне увеличиваем, указатель в ключе оставляем без изменений
+                // приоритет #1: режим пропуска - указатель в шаблоне увеличиваем,
+                //                                указатель в ключе оставляем без изменений
                 // съедаем 1-к-1, т.е. рассматриваем '#' как '*'
-                stack.addFirst(new Integer[]{pos + 1, keyPos + 1, 1});
+                stack.addFirst(new Integer[]{pos + 1, keyPos + 1});
                 // расширение до '#.*' (самое дорогое вычисление - отлкадываем)
-                stack.addLast(new Integer[]{pos, keyPos + 1, 2});
+                stack.addLast(new Integer[]{pos, keyPos + 1});
                 pos++;
             } else if (comps[pos].charAt(0) == '*') {
                 // звезда подходит любому слову
@@ -72,19 +81,26 @@ public class TemplateMatcherImproved implements TemplateMatcher {
                 keyPos++;
             } else {
                 // здесь в компоненте шаблона - слово, просто сравниваем
-                if (!comps[pos].equals(keyComps[keyPos])) {
-                    Integer[] data = stack.poll();
-                    if (data == null) {
-                        return false;
-                    }
-                    pos = data[0];
-                    keyPos = data[1];
-                    continue;
+                if (comps[pos].equals(keyComps[keyPos])) {
+                    pos++;
+                    keyPos++;
+                } else {
+                    takeFromStackOrFail = true;
                 }
-                pos++;
-                keyPos++;
             }
-        } while (true);
+        }
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        TemplateMatcherImproved that = (TemplateMatcherImproved) o;
+        return template.equals(that.template);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(template);
+    }
 }

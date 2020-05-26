@@ -1,22 +1,27 @@
 package rtk_contest.templating;
 
+import rtk_contest.server.ConsumerData;
+
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.Objects;
 
-public class TemplateMatcherImproved implements TemplateMatcher {
+public class TemplateMatcherImproved extends BaseMatcher {
 
-    private final String template;
     private final String[] comps;
 
-    public TemplateMatcherImproved(String template, String[] comps) {
-        this.template = template;
+    public TemplateMatcherImproved(ConsumerData consumerData, String template, String[] comps) {
+        super(consumerData, template);
         this.comps = comps;
     }
 
     @Override
     public boolean matchTo(String[] keyComps) {
         return internalMatch(keyComps);
+    }
+
+    @Override
+    public ConsumerData getConsumerData() {
+        return null;
     }
 
     /**
@@ -89,18 +94,5 @@ public class TemplateMatcherImproved implements TemplateMatcher {
                 }
             }
         }
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        TemplateMatcherImproved that = (TemplateMatcherImproved) o;
-        return template.equals(that.template);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(template);
     }
 }

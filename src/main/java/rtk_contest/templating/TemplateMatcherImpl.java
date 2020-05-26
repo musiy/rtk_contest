@@ -1,17 +1,15 @@
 package rtk_contest.templating;
 
-import java.util.Objects;
+import rtk_contest.server.ConsumerData;
 
-public class TemplateMatcherImpl implements TemplateMatcher {
+public class TemplateMatcherImpl extends BaseMatcher {
 
     // Хранит компоненты шаблона
     private final String[] templateComps;
 
-    private final String template;
-
-    public TemplateMatcherImpl(String template, String[] templateComps) {
+    public TemplateMatcherImpl(ConsumerData consumerData, String template, String[] templateComps) {
+        super(consumerData, template);
         // работа со строками - это время и память, работаем с массивом символов шаблона
-        this.template = template;
         this.templateComps = templateComps;
     }
 
@@ -49,18 +47,5 @@ public class TemplateMatcherImpl implements TemplateMatcher {
             return internalMatch(templateCompsPos + 1, keyComps, keyCompsPos + 1);
         }
         return false;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        TemplateMatcherImpl that = (TemplateMatcherImpl) o;
-        return Objects.equals(template, that.template);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(template);
     }
 }

@@ -22,10 +22,10 @@ public class ChangeSubscriptionHandler implements Handler {
         for (int i = 0; i < templates.length; i++) {
             if (actionValue == 0) {
                 //logger.info(String.format("Подписка [%d]: ", consumer.getNum()) + template);
-                consumer.getTemplateManager().addTemplate(templates[i]);
+                consumer.getTemplateManager().addTemplate(consumer, templates[i]);
             } else {
                 //logger.info(String.format("Отписка [%d]: ", consumer.getNum()) + template);
-                consumer.getTemplateManager().removeTemplate(templates[i]);
+                consumer.getTemplateManager().removeTemplate(consumer, templates[i]);
             }
         }
     }

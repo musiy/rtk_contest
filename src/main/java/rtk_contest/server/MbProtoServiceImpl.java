@@ -83,10 +83,10 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
                     templates[i] = consumeRequest.getKeys(i);
                     if (consumeRequest.getActionValue() == 0) {
                         //logger.info(String.format("Подписка [%d]: ", consumer.getNum()) + template);
-                        thisConsumer.getTemplateManager().addTemplate(templates[i]);
+                        thisConsumer.getTemplateManager().addTemplate(thisConsumer, templates[i]);
                     } else {
                         //logger.info(String.format("Отписка [%d]: ", consumer.getNum()) + template);
-                        thisConsumer.getTemplateManager().removeTemplate(templates[i]);
+                        thisConsumer.getTemplateManager().removeTemplate(thisConsumer, templates[i]);
                     }
                 }
             }

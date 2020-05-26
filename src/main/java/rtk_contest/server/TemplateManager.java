@@ -27,7 +27,7 @@ public class TemplateManager {
     private final Set<TemplateMatcher> templatesWithoutWords = Sets.newConcurrentHashSet();
     private volatile boolean hasTemplatesWithoutWords = false;
 
-    public void addTemplate(String template) {
+    public void addTemplate(ConsumerData consumerData, String template) {
         String[] comps = StringHelper.split(template);
 
         boolean hasWords = false;
@@ -43,11 +43,11 @@ public class TemplateManager {
         if (hasWords && !hasSpec) {
             onlyWords.add(template);
         } else if (!hasWords && hasSpec) {
-            TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(template, comps);
+            TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(consumerData, template, comps);
             templatesWithoutWords.add(templateMatcher);
             hasTemplatesWithoutWords = true;
         } else {
-            TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(template, comps);
+            TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(consumerData, template, comps);
             for (int i = 0; i < comps.length; i++) {
                 if ('#' == comps[i].charAt(0) || '*' == comps[i].charAt(0)) {
                     // ничего не делаем, это спец. символ
@@ -60,7 +60,7 @@ public class TemplateManager {
 
     }
 
-    public void removeTemplate(String template) {
+    public void removeTemplate(ConsumerData consumer, String template) {
         String[] comps = StringHelper.split(template);
 
         boolean hasWords = false;
@@ -76,13 +76,13 @@ public class TemplateManager {
         if (hasWords && !hasSpec) {
             onlyWords.remove(template);
         } else if (!hasWords && hasSpec) {
-            TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(template, comps);
+            TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(consumer, template, comps);
             templatesWithoutWords.remove(templateMatcher);
             if (templatesWithoutWords.isEmpty()) {
                 hasTemplatesWithoutWords = false;
             }
         } else {
-            TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(template, comps);
+            TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(consumer, template, comps);
             for (int i = 0; i < comps.length; i++) {
                 String comp = comps[i];
                 if ('#' == comp.charAt(0) || '*' == comp.charAt(0)) {

@@ -10,14 +10,14 @@ public class TemplateMatcherImplTests {
     private static void shouldTryMatch(String template, String key) {
         String[] templateComps = StringHelper.split(template);
         String[] keyComps = StringHelper.split(key);
-        TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(template, templateComps);
+        TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(null, template, templateComps);
         assertTrue(templateMatcher.matchTo(keyComps));
     }
 
     private static void shouldNotMatch(String template, String key) {
         String[] templateComps = StringHelper.split(template);
         String[] keyComps = StringHelper.split(key);
-        TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(template, templateComps);
+        TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(null, template, templateComps);
         assertFalse(templateMatcher.matchTo(keyComps));
     }
 

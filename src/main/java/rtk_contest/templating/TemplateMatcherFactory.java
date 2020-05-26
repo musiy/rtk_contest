@@ -1,18 +1,18 @@
 package rtk_contest.templating;
 
-import java.util.Objects;
+import rtk_contest.server.ConsumerData;
 
 public class TemplateMatcherFactory {
 
-    public static TemplateMatcher getByTemplate(String template, String[] comps) {
-        TemplateMatcher templateMatcher = internalGetByTemplate(template, comps);
+    public static TemplateMatcher getByTemplate(ConsumerData consumerData, String template, String[] comps) {
+        TemplateMatcher templateMatcher = internalGetByTemplate(consumerData, template, comps);
         if (templateMatcher == null) {
-            templateMatcher = new TemplateMatcherImproved(template, comps);
+            templateMatcher = new TemplateMatcherImproved(consumerData, template, comps);
         }
         return templateMatcher;
     }
 
-    static TemplateMatcher internalGetByTemplate(String template, String[] comps) {
+    static TemplateMatcher internalGetByTemplate(ConsumerData consumerData, String template, String[] comps) {
 
         boolean hasWord = false;
         boolean hasHash = false;
@@ -28,16 +28,16 @@ public class TemplateMatcherFactory {
         }
 
         if (!hasWord) {
-            return new SpecTemplateMatcher(template, hasHash, starsCount);
+            return new SpecTemplateMatcher(consumerData, template, hasHash, starsCount);
         }
 
         if (comps.length == 1) {
             if (comps[0].charAt(0) == '#') {
-                return new SingleHashMatcher();
+                return new SingleHashMatcher(consumerData);
             } else if (comps[0].charAt(0) == '*') {
-                return new SingleStarMatcher();
+                return new SingleStarMatcher(consumerData);
             } else {
-                return new SingleWordMatcher(comps[0]);
+                return new SingleWordMatcher(consumerData, comps[0]);
             }
         } else if (comps.length == 2) {
             boolean pos1IsWord = false;
@@ -50,17 +50,17 @@ public class TemplateMatcherFactory {
             }
             // W.W
             if (pos1IsWord && pos2IsWord) {
-                return new DoubleWordMatcher(template, comps[0], comps[1]);
+                return new DoubleWordMatcher(consumerData, template, comps[0], comps[1]);
             }
             // W.*
             // W.#
             if (pos1IsWord) {
-                return new TwoCompsMatcher_First_W(template, comps[0], comps[1].charAt(0));
+                return new TwoCompsMatcher_First_W(consumerData, template, comps[0], comps[1].charAt(0));
             }
             // *.W
             // #.W
             if (pos2IsWord) {
-                return new TwoCompsMatcher_Second_W(template, comps[0].charAt(0), comps[1]);
+                return new TwoCompsMatcher_Second_W(consumerData, template, comps[0].charAt(0), comps[1]);
             }
             // варианты ниже здесь не рассматриваем - это особые случаи
             // #.#
@@ -82,26 +82,30 @@ public class TemplateMatcherFactory {
             }
             // W.W.W
             if (pos1IsWord && pos2IsWord && pos3IsWord) {
-                return new TrippleCompMatcherAllWords(template, comps[0], comps[1], comps[2]);
+                return new TrippleCompMatcherAllWords(consumerData, template, comps[0], comps[1], comps[2]);
             }
             // W.W.?
             // W.?.W
             // ?.W.W
             if ((pos1IsWord && pos2IsWord) || (pos1IsWord && pos3IsWord) || (pos2IsWord && pos3IsWord)) {
-                return new TrippleCompMatcherTwoWords(template, comps, pos1IsWord, pos2IsWord, pos3IsWord);
+                return new TrippleCompMatcherTwoWords(consumerData, template, comps, pos1IsWord, pos2IsWord, pos3IsWord);
             }
 
             // W.?.?
             // ?.W.?
             // ?.?.W
             if (pos1IsWord || pos2IsWord || pos3IsWord) {
-                return new TrippleCompMatcherOneWord(template, comps, pos1IsWord, pos2IsWord, pos3IsWord);
+                return new TrippleCompMatcherOneWord(consumerData, template, comps, pos1IsWord, pos2IsWord, pos3IsWord);
             }
         }
         return null;
     }
 
-    static class SingleHashMatcher implements TemplateMatcher {
+    static class SingleHashMatcher extends BaseMatcher {
+
+        public SingleHashMatcher(ConsumerData consumerData) {
+            super(consumerData, "#");
+        }
 
         @Override
         public boolean matchTo(String[] keyComps) {
@@ -109,7 +113,11 @@ public class TemplateMatcherFactory {
         }
     }
 
-    static class SingleStarMatcher implements TemplateMatcher {
+    static class SingleStarMatcher extends BaseMatcher {
+
+        public SingleStarMatcher(ConsumerData consumerData) {
+            super(consumerData, "*");
+        }
 
         @Override
         public boolean matchTo(String[] keyComps) {
@@ -117,11 +125,12 @@ public class TemplateMatcherFactory {
         }
     }
 
-    static class SingleWordMatcher implements TemplateMatcher {
+    static class SingleWordMatcher extends BaseMatcher {
 
         private final String word;
 
-        SingleWordMatcher(String word) {
+        SingleWordMatcher(ConsumerData consumerData, String word) {
+            super(consumerData, word);
             this.word = word;
         }
 
@@ -135,34 +144,13 @@ public class TemplateMatcherFactory {
      * Два компонента
      */
 
-    static abstract class BaseMatcher implements TemplateMatcher {
-        private final String template;
-
-        public BaseMatcher(String template) {
-            this.template = template;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            BaseMatcher that = (BaseMatcher) o;
-            return Objects.equals(template, that.template);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(template);
-        }
-    }
-
     static class DoubleWordMatcher extends BaseMatcher {
 
         private final String word1;
         private final String word2;
 
-        DoubleWordMatcher(String template, String word1, String word2) {
-            super(template);
+        DoubleWordMatcher(ConsumerData consumerData, String template, String word1, String word2) {
+            super(consumerData, template);
             this.word1 = word1;
             this.word2 = word2;
         }
@@ -178,8 +166,8 @@ public class TemplateMatcherFactory {
         private final String word;
         private final char sym;
 
-        public TwoCompsMatcher_First_W(String template, String word, char sym) {
-            super(template);
+        public TwoCompsMatcher_First_W(ConsumerData consumerData, String template, String word, char sym) {
+            super(consumerData, template);
             this.word = word;
             this.sym = sym;
         }
@@ -198,8 +186,8 @@ public class TemplateMatcherFactory {
         private final String word;
         private final char sym;
 
-        public TwoCompsMatcher_Second_W(String template, char sym, String word) {
-            super(template);
+        public TwoCompsMatcher_Second_W(ConsumerData consumerData, String template, char sym, String word) {
+            super(consumerData, template);
             this.word = word;
             this.sym = sym;
 
@@ -224,8 +212,8 @@ public class TemplateMatcherFactory {
         private final String w2;
         private final String w3;
 
-        public TrippleCompMatcherAllWords(String template, String w1, String w2, String w3) {
-            super(template);
+        public TrippleCompMatcherAllWords(ConsumerData consumerData, String template, String w1, String w2, String w3) {
+            super(consumerData, template);
             this.w1 = w1;
             this.w2 = w2;
             this.w3 = w3;
@@ -250,9 +238,9 @@ public class TemplateMatcherFactory {
         private final String wB;
         private final char sym;
 
-        public TrippleCompMatcherTwoWords(String template,
+        public TrippleCompMatcherTwoWords(ConsumerData consumerData, String template,
                                           String[] comps, boolean pos1IsWord, boolean pos2IsWord, boolean pos3IsWord) {
-            super(template);
+            super(consumerData, template);
             if (!pos1IsWord) {
                 posSym = 0;
                 posW1 = 1;
@@ -306,9 +294,9 @@ public class TemplateMatcherFactory {
         private final String word;
 
 
-        public TrippleCompMatcherOneWord(String template, String[] comps,
+        public TrippleCompMatcherOneWord(ConsumerData consumerData, String template, String[] comps,
                                          boolean pos1IsWord, boolean pos2IsWord, boolean pos3IsWord) {
-            super(template);
+            super(consumerData, template);
             if (pos1IsWord) {
                 posWord = 0;
                 posSym1 = 1;
@@ -381,8 +369,8 @@ public class TemplateMatcherFactory {
         private final boolean hasHash;
         private final int starsCount;
 
-        public SpecTemplateMatcher(String template, boolean hasHash, int starsCount) {
-            super(template);
+        public SpecTemplateMatcher(ConsumerData consumerData, String template, boolean hasHash, int starsCount) {
+            super(consumerData, template);
             this.hasHash = hasHash;
             this.starsCount = starsCount;
         }

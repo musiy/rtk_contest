@@ -81,14 +81,20 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
                 String[] templates = new String[consumeRequest.getKeysCount()];
                 for (int i = 0; i < consumeRequest.getKeysCount(); i++) {
                     templates[i] = consumeRequest.getKeys(i);
+                    if (consumeRequest.getActionValue() == 0) {
+                        //logger.info(String.format("Подписка [%d]: ", consumer.getNum()) + template);
+                        thisConsumer.getTemplateManager().addTemplate(templates[i]);
+                    } else {
+                        //logger.info(String.format("Отписка [%d]: ", consumer.getNum()) + template);
+                        thisConsumer.getTemplateManager().removeTemplate(templates[i]);
+                    }
                 }
-                Handler handler = new ChangeSubscriptionHandler(thisConsumer, consumeRequest.getActionValue(), templates);
-                queue.add(handler);
             }
 
             @Override
             public void onError(Throwable t) {
                 consumers.remove(thisConsumer);
+                thisConsumer.onDelete();
                 LOGGER.error("Консьюмер закрылся с ошибкой", t);
             }
 
@@ -96,6 +102,7 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
             public void onCompleted() {
                 try {
                     consumers.remove(thisConsumer);
+                    thisConsumer.onDelete();
                     responseObserver.onCompleted();
                 } catch (Exception e) {
                     LOGGER.error("Консьюмер закрылся с ошибкой (onCompleted)", e);

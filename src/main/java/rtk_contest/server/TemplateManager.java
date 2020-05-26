@@ -129,4 +129,13 @@ public class TemplateManager {
         }
         return false;
     }
+
+    public void onDelete() {
+        for (Map.Entry<String, Set<TemplateMatcher>> entry : templatesCommon.entrySet()) {
+            entry.getValue().clear();
+        }
+        templatesCommon.clear();
+        onlyWords.clear();
+        templatesWithoutWords.clear();
+    }
 }

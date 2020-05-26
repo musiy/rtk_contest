@@ -5,6 +5,7 @@ import io.grpc.ServerBuilder;
 import rtk_contest.server.MbProtoServiceImpl;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -18,9 +19,11 @@ public class MbProtoServerApp {
     }
 
     private void start() throws IOException {
+        ArrayList<Object> list = new ArrayList<>();
         for (int i = 0; i < 50_000_000; i++) {
-            new Object();
+            list.add(new Object());
         }
+        list = null;
         Runtime.getRuntime().gc();
         /* The port on which the server should run */
         server = ServerBuilder.forPort(port)

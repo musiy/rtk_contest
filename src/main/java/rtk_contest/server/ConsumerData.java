@@ -10,7 +10,7 @@ import java.util.concurrent.locks.ReentrantLock;
 /**
  * Класс описывает потребителя - его стрим и шаблоны на которые он подписан.
  */
-class ConsumerData implements Comparable<ConsumerData> {
+public class ConsumerData implements Comparable<ConsumerData> {
 
     private static final AtomicInteger CONSUMER_ENUMERATOR = new AtomicInteger(1);
 
@@ -59,5 +59,9 @@ class ConsumerData implements Comparable<ConsumerData> {
         lock.lock();
         responseObserver.onNext(response);
         lock.unlock();
+    }
+
+    public void onDelete() {
+        templateManager.onDelete();
     }
 }

@@ -1,24 +1,61 @@
 package rtk_contest.templating;
 
+import com.google.protobuf.ByteString;
+import io.grpc.stub.StreamObserver;
+import mbproto.Mbproto;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+import org.mockito.verification.VerificationMode;
+import rtk_contest.server.ConsumerData;
+import rtk_contest.server.GlobalSearchContext;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 
 public class TemplateMatcherImplTests {
 
     private static void shouldTryMatch(String template, String key) {
         String[] templateComps = StringHelper.split(template);
         String[] keyComps = StringHelper.split(key);
-        TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(null, template, templateComps);
+        TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(template, templateComps);
         assertTrue(templateMatcher.matchTo(keyComps));
+
+        GlobalSearchContext.testInit();
+        StreamObserver<Mbproto.ConsumeResponse> responseObserver = Mockito.mock(StreamObserver.class);
+        ConsumerData consumerData = new ConsumerData(responseObserver);
+        GlobalSearchContext.addConsumer(consumerData);
+        GlobalSearchContext.addTemplate(consumerData, template);
+        Mbproto.ConsumeResponse response = Mbproto.ConsumeResponse.newBuilder()
+                .setKey("test")
+                .setPayload(ByteString.copyFromUtf8("test"))
+                .build();
+        GlobalSearchContext.matchToAndSend(response, key);
+        ArgumentCaptor<Mbproto.ConsumeResponse> argumentCaptor = ArgumentCaptor.forClass(Mbproto.ConsumeResponse.class);
+        Mockito.verify(responseObserver).onNext(argumentCaptor.capture());
+        assertSame(response, argumentCaptor.getValue());
     }
 
     private static void shouldNotMatch(String template, String key) {
         String[] templateComps = StringHelper.split(template);
         String[] keyComps = StringHelper.split(key);
-        TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(null, template, templateComps);
+        TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate(template, templateComps);
         assertFalse(templateMatcher.matchTo(keyComps));
+
+        GlobalSearchContext.testInit();
+        StreamObserver<Mbproto.ConsumeResponse> responseObserver = Mockito.mock(StreamObserver.class);
+        ConsumerData consumerData = new ConsumerData(responseObserver);
+        GlobalSearchContext.addConsumer(consumerData);
+        GlobalSearchContext.addTemplate(consumerData, template);
+        Mbproto.ConsumeResponse response = Mbproto.ConsumeResponse.newBuilder()
+                .setKey("test")
+                .setPayload(ByteString.copyFromUtf8("test"))
+                .build();
+        GlobalSearchContext.matchToAndSend(response, key);
+        Mockito.verify(responseObserver, Mockito.never()).onNext(any());
     }
 
     // Один компонент
@@ -263,16 +300,16 @@ public class TemplateMatcherImplTests {
 
     // четыре и более компонентов
 
-//
-//    @Test
-//    void test_one_s_s_two() {
-//        TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate("one.*.*.two");
-//        assertTrue(templateMatcher.matchTo("one.three.four.two"));
-//        assertTrue(templateMatcher.matchTo("one.five.six.two"));
-//        assertFalse(templateMatcher.matchTo("one.three.two"));
-//        assertFalse(templateMatcher.matchTo("two.one.three.two"));
-//    }
-//
+
+    @Test
+    void test_one_s_s_two() {
+        shouldTryMatch("one.*.*.two", "one.three.four.two");
+        shouldTryMatch("one.*.*.two", "one.five.six.two");
+        shouldNotMatch("one.*.*.two", "one.three.two");
+        shouldNotMatch("one.*.*.two", "two.one.three.two");
+        shouldNotMatch("one.*.*.two", "one.one.three.two.match");
+    }
+
 //    @Test
 //    void test_one_s_two_s() {
 //        TemplateMatcher templateMatcher = TemplateMatcherFactory.getByTemplate("one.*.two.*");

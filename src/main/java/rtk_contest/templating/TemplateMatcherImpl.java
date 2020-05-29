@@ -1,14 +1,12 @@
 package rtk_contest.templating;
 
-import rtk_contest.server.ConsumerData;
-
 public class TemplateMatcherImpl extends BaseMatcher {
 
     // Хранит компоненты шаблона
     private final String[] templateComps;
 
-    public TemplateMatcherImpl(ConsumerData consumerData, String template, String[] templateComps) {
-        super(consumerData, template);
+    public TemplateMatcherImpl(String template, String[] templateComps) {
+        super(template);
         // работа со строками - это время и память, работаем с массивом символов шаблона
         this.templateComps = templateComps;
     }

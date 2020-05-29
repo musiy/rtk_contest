@@ -1,5 +1,6 @@
 package rtk_contest;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import rtk_contest.server.MbProtoServiceImpl;
@@ -20,7 +21,7 @@ public class MbProtoServerApp {
 
     private void start() throws IOException {
         ArrayList<Object> list = new ArrayList<>();
-        for (int i = 0; i < 50_000_000; i++) {
+        for (int i = 0; i < 25_000_000; i++) {
             list.add(new Object());
         }
         list = null;
@@ -28,7 +29,7 @@ public class MbProtoServerApp {
         /* The port on which the server should run */
         server = ServerBuilder.forPort(port)
                 .addService(new MbProtoServiceImpl())
-                .executor(Executors.newFixedThreadPool(1))
+                .executor(Executors.newFixedThreadPool(4, new ThreadFactoryBuilder().setNameFormat("server-thread-%d").build()))
                 .build()
                 .start();
         System.out.println("Server started, listening on " + port);

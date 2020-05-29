@@ -1,13 +1,12 @@
 package rtk_contest.server;
 
-import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.grpc.stub.StreamObserver;
 import mbproto.Mbproto;
 import mbproto.MessageBrokerGrpc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -17,26 +16,17 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
 
     private final Logger LOGGER = LoggerFactory.getLogger(MbProtoServiceImpl.class);
 
-    private static final int THREADS_NUM_TO_PROCEED_INBOX = 4;
-
-    /**
-     * Список всех потребителей.
-     */
-    private final Set<ConsumerData> consumers = Sets.newConcurrentHashSet();
-
     /**
      * Пул потоков для обработки входящих сообщений
      */
     @SuppressWarnings("FieldCanBeLocal")
     private final ExecutorService executorService;
-
     private final BlockingQueue<Handler> queue = new ArrayBlockingQueue<>(30_000);
 
     public MbProtoServiceImpl() {
-        executorService = Executors.newFixedThreadPool(THREADS_NUM_TO_PROCEED_INBOX);
-        for (int i = 0; i < THREADS_NUM_TO_PROCEED_INBOX; i++) {
-            executorService.submit(new Processor(queue));
-        }
+        executorService = Executors.newFixedThreadPool(1,
+                new ThreadFactoryBuilder().setNameFormat("consumers-event-thread--%d").build());
+        executorService.submit(new Processor(queue));
     }
 
     public StreamObserver<Mbproto.ProduceRequest> produce(
@@ -46,7 +36,16 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
 
             @Override
             public void onNext(Mbproto.ProduceRequest request) {
-                queue.add(new IncomeMessageHandler(consumers, request.getKey(), request.getPayload()));
+                long t0 = System.currentTimeMillis();
+                Mbproto.ConsumeResponse response = Mbproto.ConsumeResponse.newBuilder()
+                        .setKey(request.getKey())
+                        .setPayload(request.getPayload())
+                        .build();
+                GlobalSearchContext.matchToAndSend(response, request.getKey());
+                long delta = System.currentTimeMillis() - t0;
+                if (delta > 2) {
+                    //LOGGER.info(String.format("%d - %s", delta, request.getKey()));
+                }
             }
 
             @Override
@@ -72,40 +71,29 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
         // добавить консьюмера
         ConsumerData thisConsumer = new ConsumerData(responseObserver);
         // добавим консьюмера в список
-        consumers.add(thisConsumer);
+        GlobalSearchContext.addConsumer(thisConsumer);
 
         return new StreamObserver<Mbproto.ConsumeRequest>() {
 
             @Override
             public void onNext(Mbproto.ConsumeRequest consumeRequest) {
-                String[] templates = new String[consumeRequest.getKeysCount()];
-                for (int i = 0; i < consumeRequest.getKeysCount(); i++) {
-                    templates[i] = consumeRequest.getKeys(i);
-                    if (consumeRequest.getActionValue() == 0) {
-                        //logger.info(String.format("Подписка [%d]: ", consumer.getNum()) + template);
-                        thisConsumer.getTemplateManager().addTemplate(thisConsumer, templates[i]);
-                    } else {
-                        //logger.info(String.format("Отписка [%d]: ", consumer.getNum()) + template);
-                        thisConsumer.getTemplateManager().removeTemplate(thisConsumer, templates[i]);
-                    }
-                }
+                queue.add(new ChangeSubscriptionHandler(thisConsumer, consumeRequest));
             }
 
             @Override
             public void onError(Throwable t) {
-                consumers.remove(thisConsumer);
-                thisConsumer.onDelete();
+                //GlobalSearchContext.removeConsumer(thisConsumer);
                 LOGGER.error("Консьюмер закрылся с ошибкой", t);
             }
 
             @Override
             public void onCompleted() {
                 try {
-                    consumers.remove(thisConsumer);
-                    thisConsumer.onDelete();
                     responseObserver.onCompleted();
                 } catch (Exception e) {
                     LOGGER.error("Консьюмер закрылся с ошибкой (onCompleted)", e);
+                } finally {
+                    //GlobalSearchContext.removeConsumer(thisConsumer);
                 }
             }
         };

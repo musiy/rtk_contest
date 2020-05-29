@@ -1,18 +1,16 @@
 package rtk_contest.templating;
 
-import rtk_contest.server.ConsumerData;
-
 public class TemplateMatcherFactory {
 
-    public static TemplateMatcher getByTemplate(ConsumerData consumerData, String template, String[] comps) {
-        TemplateMatcher templateMatcher = internalGetByTemplate(consumerData, template, comps);
+    public static TemplateMatcher getByTemplate(String template, String[] comps) {
+        TemplateMatcher templateMatcher = internalGetByTemplate(template, comps);
         if (templateMatcher == null) {
-            templateMatcher = new TemplateMatcherImproved(consumerData, template, comps);
+            templateMatcher = new TemplateMatcherImpl(template, comps);
         }
         return templateMatcher;
     }
 
-    static TemplateMatcher internalGetByTemplate(ConsumerData consumerData, String template, String[] comps) {
+    static TemplateMatcher internalGetByTemplate(String template, String[] comps) {
 
         boolean hasWord = false;
         boolean hasHash = false;
@@ -27,17 +25,21 @@ public class TemplateMatcherFactory {
             }
         }
 
+        if (hasWord && starsCount == 0 && !hasHash) {
+            return new ExactTemplateMatcher(template, comps);
+        }
+
         if (!hasWord) {
-            return new SpecTemplateMatcher(consumerData, template, hasHash, starsCount);
+            return new SpecTemplateMatcher(template, hasHash, starsCount);
         }
 
         if (comps.length == 1) {
             if (comps[0].charAt(0) == '#') {
-                return new SingleHashMatcher(consumerData);
+                return new SingleHashMatcher();
             } else if (comps[0].charAt(0) == '*') {
-                return new SingleStarMatcher(consumerData);
+                return new SingleStarMatcher();
             } else {
-                return new SingleWordMatcher(consumerData, comps[0]);
+                return new SingleWordMatcher(comps[0]);
             }
         } else if (comps.length == 2) {
             boolean pos1IsWord = false;
@@ -50,17 +52,17 @@ public class TemplateMatcherFactory {
             }
             // W.W
             if (pos1IsWord && pos2IsWord) {
-                return new DoubleWordMatcher(consumerData, template, comps[0], comps[1]);
+                return new DoubleWordMatcher(template, comps[0], comps[1]);
             }
             // W.*
             // W.#
             if (pos1IsWord) {
-                return new TwoCompsMatcher_First_W(consumerData, template, comps[0], comps[1].charAt(0));
+                return new TwoCompsMatcher_First_W(template, comps[0], comps[1].charAt(0));
             }
             // *.W
             // #.W
             if (pos2IsWord) {
-                return new TwoCompsMatcher_Second_W(consumerData, template, comps[0].charAt(0), comps[1]);
+                return new TwoCompsMatcher_Second_W(template, comps[0].charAt(0), comps[1]);
             }
             // варианты ниже здесь не рассматриваем - это особые случаи
             // #.#
@@ -82,20 +84,20 @@ public class TemplateMatcherFactory {
             }
             // W.W.W
             if (pos1IsWord && pos2IsWord && pos3IsWord) {
-                return new TrippleCompMatcherAllWords(consumerData, template, comps[0], comps[1], comps[2]);
+                return new TrippleCompMatcherAllWords(template, comps[0], comps[1], comps[2]);
             }
             // W.W.?
             // W.?.W
             // ?.W.W
             if ((pos1IsWord && pos2IsWord) || (pos1IsWord && pos3IsWord) || (pos2IsWord && pos3IsWord)) {
-                return new TrippleCompMatcherTwoWords(consumerData, template, comps, pos1IsWord, pos2IsWord, pos3IsWord);
+                return new TrippleCompMatcherTwoWords(template, comps, pos1IsWord, pos2IsWord, pos3IsWord);
             }
 
             // W.?.?
             // ?.W.?
             // ?.?.W
             if (pos1IsWord || pos2IsWord || pos3IsWord) {
-                return new TrippleCompMatcherOneWord(consumerData, template, comps, pos1IsWord, pos2IsWord, pos3IsWord);
+                return new TrippleCompMatcherOneWord(template, comps, pos1IsWord, pos2IsWord, pos3IsWord);
             }
         }
         return null;
@@ -103,8 +105,8 @@ public class TemplateMatcherFactory {
 
     static class SingleHashMatcher extends BaseMatcher {
 
-        public SingleHashMatcher(ConsumerData consumerData) {
-            super(consumerData, "#");
+        public SingleHashMatcher() {
+            super("#");
         }
 
         @Override
@@ -115,8 +117,8 @@ public class TemplateMatcherFactory {
 
     static class SingleStarMatcher extends BaseMatcher {
 
-        public SingleStarMatcher(ConsumerData consumerData) {
-            super(consumerData, "*");
+        public SingleStarMatcher() {
+            super("*");
         }
 
         @Override
@@ -129,8 +131,8 @@ public class TemplateMatcherFactory {
 
         private final String word;
 
-        SingleWordMatcher(ConsumerData consumerData, String word) {
-            super(consumerData, word);
+        SingleWordMatcher(String word) {
+            super(word);
             this.word = word;
         }
 
@@ -149,8 +151,8 @@ public class TemplateMatcherFactory {
         private final String word1;
         private final String word2;
 
-        DoubleWordMatcher(ConsumerData consumerData, String template, String word1, String word2) {
-            super(consumerData, template);
+        DoubleWordMatcher(String template, String word1, String word2) {
+            super(template);
             this.word1 = word1;
             this.word2 = word2;
         }
@@ -166,8 +168,8 @@ public class TemplateMatcherFactory {
         private final String word;
         private final char sym;
 
-        public TwoCompsMatcher_First_W(ConsumerData consumerData, String template, String word, char sym) {
-            super(consumerData, template);
+        public TwoCompsMatcher_First_W(String template, String word, char sym) {
+            super(template);
             this.word = word;
             this.sym = sym;
         }
@@ -186,8 +188,8 @@ public class TemplateMatcherFactory {
         private final String word;
         private final char sym;
 
-        public TwoCompsMatcher_Second_W(ConsumerData consumerData, String template, char sym, String word) {
-            super(consumerData, template);
+        public TwoCompsMatcher_Second_W(String template, char sym, String word) {
+            super(template);
             this.word = word;
             this.sym = sym;
 
@@ -212,8 +214,8 @@ public class TemplateMatcherFactory {
         private final String w2;
         private final String w3;
 
-        public TrippleCompMatcherAllWords(ConsumerData consumerData, String template, String w1, String w2, String w3) {
-            super(consumerData, template);
+        public TrippleCompMatcherAllWords(String template, String w1, String w2, String w3) {
+            super(template);
             this.w1 = w1;
             this.w2 = w2;
             this.w3 = w3;
@@ -238,9 +240,9 @@ public class TemplateMatcherFactory {
         private final String wB;
         private final char sym;
 
-        public TrippleCompMatcherTwoWords(ConsumerData consumerData, String template,
+        public TrippleCompMatcherTwoWords(String template,
                                           String[] comps, boolean pos1IsWord, boolean pos2IsWord, boolean pos3IsWord) {
-            super(consumerData, template);
+            super(template);
             if (!pos1IsWord) {
                 posSym = 0;
                 posW1 = 1;
@@ -294,9 +296,9 @@ public class TemplateMatcherFactory {
         private final String word;
 
 
-        public TrippleCompMatcherOneWord(ConsumerData consumerData, String template, String[] comps,
+        public TrippleCompMatcherOneWord(String template, String[] comps,
                                          boolean pos1IsWord, boolean pos2IsWord, boolean pos3IsWord) {
-            super(consumerData, template);
+            super(template);
             if (pos1IsWord) {
                 posWord = 0;
                 posSym1 = 1;
@@ -369,8 +371,8 @@ public class TemplateMatcherFactory {
         private final boolean hasHash;
         private final int starsCount;
 
-        public SpecTemplateMatcher(ConsumerData consumerData, String template, boolean hasHash, int starsCount) {
-            super(consumerData, template);
+        public SpecTemplateMatcher(String template, boolean hasHash, int starsCount) {
+            super(template);
             this.hasHash = hasHash;
             this.starsCount = starsCount;
         }
@@ -382,6 +384,29 @@ public class TemplateMatcherFactory {
             } else {
                 return keyComps.length == starsCount;
             }
+        }
+    }
+
+    static class ExactTemplateMatcher extends BaseMatcher {
+
+        final String[] comps;
+
+        public ExactTemplateMatcher(String template, String[] comps) {
+            super(template);
+            this.comps = comps;
+        }
+
+        @Override
+        public boolean matchTo(String[] keyComps) {
+            if (keyComps.length != comps.length) {
+                return false;
+            }
+            for (int i = 0; i < comps.length; i++) {
+                if (!comps[i].equals(keyComps[i])) {
+                    return false;
+                }
+            }
+            return true;
         }
     }
 

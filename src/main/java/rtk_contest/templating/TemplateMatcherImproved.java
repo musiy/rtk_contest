@@ -1,7 +1,5 @@
 package rtk_contest.templating;
 
-import rtk_contest.server.ConsumerData;
-
 import java.util.ArrayDeque;
 import java.util.Deque;
 
@@ -9,19 +7,14 @@ public class TemplateMatcherImproved extends BaseMatcher {
 
     private final String[] comps;
 
-    public TemplateMatcherImproved(ConsumerData consumerData, String template, String[] comps) {
-        super(consumerData, template);
+    public TemplateMatcherImproved(String template, String[] comps) {
+        super(template);
         this.comps = comps;
     }
 
     @Override
     public boolean matchTo(String[] keyComps) {
         return internalMatch(keyComps);
-    }
-
-    @Override
-    public ConsumerData getConsumerData() {
-        return null;
     }
 
     /**

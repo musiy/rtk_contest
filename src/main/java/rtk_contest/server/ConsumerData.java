@@ -17,7 +17,7 @@ public class ConsumerData implements Comparable<ConsumerData> {
     /**
      * порядковый номер потребителя
      */
-    private final int num = CONSUMER_ENUMERATOR.incrementAndGet();
+    private final int num = CONSUMER_ENUMERATOR.getAndIncrement();
     /**
      * Стрим для отправки данных консюмеру
      */
@@ -25,14 +25,8 @@ public class ConsumerData implements Comparable<ConsumerData> {
 
     final Lock lock = new ReentrantLock();
 
-    private final TemplateManager templateManager = new TemplateManager();
-
     public ConsumerData(StreamObserver<Mbproto.ConsumeResponse> responseObserver) {
         this.responseObserver = responseObserver;
-    }
-
-    public TemplateManager getTemplateManager() {
-        return templateManager;
     }
 
     public int getNum() {
@@ -56,12 +50,9 @@ public class ConsumerData implements Comparable<ConsumerData> {
     }
 
     public void send(Mbproto.ConsumeResponse response) {
+        // todo возможно стоит делать через отдельный тред, что бы без локов - нужно тестить
         lock.lock();
         responseObserver.onNext(response);
         lock.unlock();
-    }
-
-    public void onDelete() {
-        templateManager.onDelete();
     }
 }

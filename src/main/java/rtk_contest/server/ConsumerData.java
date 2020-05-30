@@ -4,15 +4,13 @@ import io.grpc.stub.StreamObserver;
 import mbproto.Mbproto;
 
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Класс описывает потребителя - его стрим и шаблоны на которые он подписан.
  */
 public class ConsumerData implements Comparable<ConsumerData> {
 
-    private static final AtomicInteger CONSUMER_ENUMERATOR = new AtomicInteger(1);
+    private static final AtomicInteger CONSUMER_ENUMERATOR = new AtomicInteger(0);
 
     /**
      * порядковый номер потребителя

@@ -44,16 +44,12 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
 
             @Override
             public void onNext(Mbproto.ProduceRequest request) {
-                long t0 = System.currentTimeMillis();
-                Mbproto.ConsumeResponse response = Mbproto.ConsumeResponse.newBuilder()
-                        .setKey(request.getKey())
-                        .setPayload(request.getPayload())
-                        .build();
-                GlobalSearchContext.matchToAndSend(response, request.getKey());
-                long delta = System.currentTimeMillis() - t0;
-                if (delta > 2) {
-                    //LOGGER.info(String.format("%d - %s", delta, request.getKey()));
-                }
+//                long t0 = System.currentTimeMillis();
+                GlobalSearchContext.matchToAndSend(request.getKey(), request.getPayload());
+//                long delta = System.currentTimeMillis() - t0;
+//                if (delta > 2) {
+//                    LOGGER.info(String.format("%d - %s", delta, request.getKey()));
+//                }
             }
 
             @Override

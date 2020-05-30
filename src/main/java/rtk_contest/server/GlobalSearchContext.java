@@ -1,6 +1,7 @@
 package rtk_contest.server;
 
 import com.google.common.collect.Sets;
+import com.google.protobuf.ByteString;
 import mbproto.Mbproto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,7 +24,7 @@ public class GlobalSearchContext {
     public static final BlockingQueue<OutputStreamProcessor.Addressing> outputStreamQueue = new ArrayBlockingQueue<>(30_000);
 
     static Set<ConsumerData> consumers = Sets.newConcurrentHashSet();
-    static Map<Integer, ConsumerData> consumersByNum = new ConcurrentHashMap<>();
+    static ConsumerData[] consumersByNum = new ConsumerData[MAX_CONSUMERS];
     static AtomicInteger consumersCount = new AtomicInteger();
 
     // todo посчитать сколько элементов на максимуме и этим значением инициализировать
@@ -33,7 +34,9 @@ public class GlobalSearchContext {
     public static void testInit() {
         consumers.clear();
         consumersCount = new AtomicInteger(0);
-        consumersByNum.clear();
+        for (int i = 0; i < MAX_CONSUMERS; i++) {
+            consumersByNum[i] = null;
+        }
         storage_l.clear();
         storage_r.clear();
     }
@@ -41,7 +44,7 @@ public class GlobalSearchContext {
     public static void addConsumer(ConsumerData consumerData) {
         consumers.add(consumerData);
         consumersCount.incrementAndGet();
-        consumersByNum.put(consumerData.getNum(), consumerData);
+        consumersByNum[consumerData.getNum()] = consumerData;
     }
 
 //    static class Stat {
@@ -80,6 +83,79 @@ public class GlobalSearchContext {
 //        zed.forEach(System.out::println);
 //    }
 
+    public static class SplitterData {
+        public SplitterData() {
+
+        }
+
+        String[] compsL1 = new String[1];
+        String[] compsL2 = new String[2];
+        String[] compsL3 = new String[3];
+        String[] compsL4 = new String[4];
+        String[] compsL5 = new String[5];
+
+        String[] compsR1 = new String[1];
+        String[] compsR2 = new String[2];
+        String[] compsR3 = new String[3];
+        String[] compsR4 = new String[4];
+        String[] compsR5 = new String[5];
+
+        String[] getCompsL(String key) {
+            int cnt = 1;
+            for (int i = 0; i < key.length(); i++) {
+                if (key.charAt(i) == '.') {
+                    cnt++;
+                }
+            }
+            String[] comps = getCompByCnt(cnt, true);
+            fill(key, comps);
+            return comps;
+        }
+
+        String[] getCompsR(String key) {
+            int cnt = 1;
+            for (int i = 0; i < key.length(); i++) {
+                if (key.charAt(i) == '.') {
+                    cnt++;
+                }
+            }
+            String[] comps = getCompByCnt(cnt, false);
+            fill(key, comps);
+            return comps;
+        }
+
+        private void fill(String key, String[] comps) {
+            int startPos = 0;
+            int idx = 0;
+            int i = 0;
+            do {
+                if (i == key.length() || key.charAt(i) == '.') {
+                    comps[idx++] = key.substring(startPos, i);
+                    startPos = i + 1;
+                }
+            } while (i++ < key.length());
+        }
+
+        private String[] getCompByCnt(int cnt, boolean left) {
+            switch (cnt) {
+                case 1:
+                    return left ? compsL1 : compsR1;
+                case 2:
+                    return left ? compsL2 : compsR2;
+                case 3:
+                    return left ? compsL3 : compsR3;
+                case 4:
+                    return left ? compsL4 : compsR4;
+                case 5:
+                    return left ? compsL5 : compsR5;
+                default:
+                    return new String[cnt];
+            }
+        }
+    }
+
+    static ThreadLocal<SplitterData> splitterDataThreadLocal = ThreadLocal.withInitial(SplitterData::new);
+
     public static void addTemplate(ConsumerData consumerData, String template) {
 //
 //        Stat stat = new Stat();
@@ -106,16 +182,16 @@ public class GlobalSearchContext {
 //        }
 //        zed.add(stat);
 
-        String[] comps = StringHelper.split(template);
+        String[] compsL = splitterDataThreadLocal.get().getCompsL(template);
 
         boolean firstIsSpec = template.charAt(0) == '#' || template.charAt(0) == '*';
 
         if (!firstIsSpec) {
-            fill(consumerData, storage_l, comps);
+            fill(consumerData, storage_l, compsL);
         } else {
-            String[] compsR = new String[comps.length];
-            for (int i = 0; i < comps.length; i++) {
-                compsR[comps.length - 1 - i] = comps[i];
+            String[] compsR = splitterDataThreadLocal.get().getCompsR(template);
+            for (int i = 0; i < compsL.length; i++) {
+                compsR[compsL.length - 1 - i] = compsL[i];
             }
             fill(consumerData, storage_r, compsR);
         }
@@ -129,7 +205,7 @@ public class GlobalSearchContext {
             node.count++;
             if (i < comps.length - 1) {
                 if (node.toNextMap == null) {
-                    node.toNextMap = new ConcurrentHashMap<>();
+                    node.toNextMap = new ConcurrentHashMap<>(1);
                 }
                 map = node.toNextMap;
             }
@@ -177,21 +253,56 @@ public class GlobalSearchContext {
         node.endHere.set(consumerData.getNum(), false);
     }
 
-    static ThreadLocal<BitSet> bitSetThreadLocal = ThreadLocal.withInitial(() -> new BitSet(MAX_CONSUMERS));
+    static ThreadLocal<BitSet> workBitSetThreadLocal = ThreadLocal.withInitial(() -> new BitSet(MAX_CONSUMERS));
+    static ThreadLocal<BitSet> allBitSetThreadLocal = ThreadLocal.withInitial(() -> new BitSet(MAX_CONSUMERS));
 
-    public static void matchToAndSend(Mbproto.ConsumeResponse response, String key) {
-        String[] compsL = StringHelper.split(key);
-        String[] compsR = new String[compsL.length];
+    static class ResponseKeeper {
+        private Mbproto.ConsumeResponse response;
+        private String key;
+        private ByteString payload;
+
+        void onInit(String key, ByteString payload) {
+            response = null;
+            this.key = key;
+            this.payload = payload;
+        }
+
+        Mbproto.ConsumeResponse obtaint() {
+            if (response == null) {
+                response = Mbproto.ConsumeResponse.newBuilder()
+                        .setKey(key)
+                        .setPayload(payload)
+                        .build();
+            }
+            return response;
+        }
+
+        void after() {
+            response = null;
+            key = null;
+            payload = null;
+        }
+    }
+
+    static ThreadLocal<ResponseKeeper> keeperThreadLocal = ThreadLocal.withInitial(ResponseKeeper::new);
+
+    public static void matchToAndSend(String key, ByteString payload) {
+        String[] compsL = splitterDataThreadLocal.get().getCompsL(key);
+        String[] compsR = splitterDataThreadLocal.get().getCompsR(key);
         for (int i = 0; i < compsL.length; i++) {
             compsR[compsL.length - 1 - i] = compsL[i];
         }
-        BitSet bs = new BitSet(MAX_CONSUMERS);
-        search(storage_l, bs, compsL, response, true);
-        search(storage_r, bs, compsR, response, false);
+        BitSet bs = allBitSetThreadLocal.get();
+        bs.clear();
+        ResponseKeeper responseKeeper = keeperThreadLocal.get();
+        responseKeeper.onInit(key, payload);
+        search(storage_l, bs, compsL, responseKeeper);
+        search(storage_r, bs, compsR, responseKeeper);
+        responseKeeper.after();
     }
 
     private static void search(Map<String, Node> storage, BitSet bs, String[] comps,
-                               Mbproto.ConsumeResponse response, boolean isForward) {
+                               ResponseKeeper responseKeeper) {
         String comp1 = comps[0];
         // на первом уровне всегда доступно слово
         Node node = storage.get(comp1);
@@ -202,12 +313,12 @@ public class GlobalSearchContext {
             // возможны следующие варианты:
             // SLOVO
             // SLOVO -> #
-            iterateAndSend(bs, response, node.endHere);
+            iterateAndSend(bs, responseKeeper, node.endHere);
 
             if (node.toNextMap != null) {
                 Node nodeHash = node.toNextMap.get("#");
                 if (nodeHash != null) {
-                    iterateAndSend(bs, response, nodeHash.endHere);
+                    iterateAndSend(bs, responseKeeper, nodeHash.endHere);
                 }
             }
 
@@ -224,19 +335,19 @@ public class GlobalSearchContext {
             }
             Node nodeComp2 = node.toNextMap.get(comp2);
             if (nodeComp2 != null) {
-                iterateAndSend(bs, response, nodeComp2.endHere);
+                iterateAndSend(bs, responseKeeper, nodeComp2.endHere);
             }
             Node nodeStar = node.toNextMap.get("*");
             if (nodeStar != null) {
-                iterateAndSend(bs, response, nodeStar.endHere);
+                iterateAndSend(bs, responseKeeper, nodeStar.endHere);
             }
             Node nodeHash = node.toNextMap.get("#");
             if (nodeHash != null) {
-                iterateAndSend(bs, response, nodeHash.endHere);
+                iterateAndSend(bs, responseKeeper, nodeHash.endHere);
                 if (nodeHash.toNextMap != null) {
                     Node nodeWord3 = nodeHash.toNextMap.get(comp2);
                     if (nodeWord3 != null) {
-                        iterateAndSend(bs, response, nodeWord3.endHere);
+                        iterateAndSend(bs, responseKeeper, nodeWord3.endHere);
                     }
                 }
             }
@@ -257,7 +368,7 @@ public class GlobalSearchContext {
                 if (nodeComp2.toNextMap != null) {
                     Node nodeComp3 = nodeComp2.toNextMap.get(comp3);
                     if (nodeComp3 != null) {
-                        iterateAndSend(bs, response, nodeComp3.endHere);
+                        iterateAndSend(bs, responseKeeper, nodeComp3.endHere);
                     }
                 }
             }
@@ -265,31 +376,34 @@ public class GlobalSearchContext {
             if (nodeStar2 != null && nodeStar2.toNextMap != null) {
                 Node nodeStar3 = nodeStar2.toNextMap.get("*");
                 if (nodeStar3 != null) {
-                    iterateAndSend(bs, response, nodeStar3.endHere);
+                    iterateAndSend(bs, responseKeeper, nodeStar3.endHere);
                 }
                 Node nodeWord3 = nodeStar2.toNextMap.get(comp3);
                 if (nodeWord3 != null) {
-                    iterateAndSend(bs, response, nodeWord3.endHere);
+                    iterateAndSend(bs, responseKeeper, nodeWord3.endHere);
                 }
             }
             Node nodeHash2 = node.toNextMap.get("#");
             if (nodeHash2 != null) {
-                iterateAndSend(bs, response, nodeHash2.endHere);
+                iterateAndSend(bs, responseKeeper, nodeHash2.endHere);
                 if (nodeHash2.toNextMap != null) {
                     Node nodeWord3 = nodeHash2.toNextMap.get(comp3);
                     if (nodeWord3 != null) {
-                        iterateAndSend(bs, response, nodeWord3.endHere);
+                        iterateAndSend(bs, responseKeeper, nodeWord3.endHere);
                     }
                 }
             }
         }
     }
 
-    private static void iterateAndSend(BitSet all, Mbproto.ConsumeResponse response, BitSet endHere) {
+    private static void iterateAndSend(BitSet all, ResponseKeeper responseKeeper, BitSet endHere) {
         if (endHere == null) {
             return;
         }
-        BitSet work = bitSetThreadLocal.get();
+        if (endHere.cardinality() == 0) {
+            return;
+        }
+        BitSet work = workBitSetThreadLocal.get();
         work.clear();
         work.or(all); // init
         work.xor(endHere);
@@ -298,8 +412,8 @@ public class GlobalSearchContext {
             return;
         }
         for (int i = work.nextSetBit(0); i != -1; i = work.nextSetBit(i + 1)) {
-            ConsumerData consumerData = consumersByNum.get(i);
-            consumerData.send(response);
+            ConsumerData consumerData = consumersByNum[i];
+            consumerData.send(responseKeeper.obtaint());
             all.set(i);
         }
     }

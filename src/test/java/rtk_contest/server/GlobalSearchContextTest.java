@@ -44,7 +44,7 @@ class GlobalSearchContextTest {
                 .setKey("one")
                 .setPayload(ByteString.copyFromUtf8("test"))
                 .build();
-        GlobalSearchContext.matchToAndSend(response, "one");
+        GlobalSearchContext.matchToAndSend("one", ByteString.copyFromUtf8("test"));
         Mockito.verify(consumerData, Mockito.times(1)).send(any());
     }
 

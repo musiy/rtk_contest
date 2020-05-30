@@ -34,7 +34,7 @@ public class TemplateMatcherImplTests {
                 .setKey("test")
                 .setPayload(ByteString.copyFromUtf8("test"))
                 .build();
-        GlobalSearchContext.matchToAndSend(response, key);
+        GlobalSearchContext.matchToAndSend(key, response.getPayload());
         ArgumentCaptor<Mbproto.ConsumeResponse> argumentCaptor = ArgumentCaptor.forClass(Mbproto.ConsumeResponse.class);
         Mockito.verify(consumerData).send(argumentCaptor.capture());
         assertSame(response, argumentCaptor.getValue());
@@ -56,7 +56,7 @@ public class TemplateMatcherImplTests {
                 .setKey("test")
                 .setPayload(ByteString.copyFromUtf8("test"))
                 .build();
-        GlobalSearchContext.matchToAndSend(response, key);
+        GlobalSearchContext.matchToAndSend(key, response.getPayload());
         Mockito.verify(consumerData, Mockito.never()).send(any());
     }
 

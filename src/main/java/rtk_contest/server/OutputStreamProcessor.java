@@ -1,18 +1,19 @@
 package rtk_contest.server;
 
 import mbproto.Mbproto;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 
 public class OutputStreamProcessor implements Runnable {
 
-    private final BlockingQueue<Addressing> streamQueue;
-    private final Set<ConsumerData> consumers;
+    static Logger logger = LoggerFactory.getLogger(OutputStreamProcessor.class);
 
-    public OutputStreamProcessor(BlockingQueue<Addressing> streamQueue, Set<ConsumerData> consumers) {
-        this.streamQueue = streamQueue;
-        this.consumers = consumers;
+    private BlockingQueue<Addressing> outputStreamQueue;
+
+    public OutputStreamProcessor(BlockingQueue<Addressing> outputStreamQueue) {
+        this.outputStreamQueue = outputStreamQueue;
     }
 
     @Override
@@ -20,7 +21,7 @@ public class OutputStreamProcessor implements Runnable {
         Addressing addressing;
         while (true) {
             try {
-                addressing = streamQueue.take();
+                addressing = outputStreamQueue.take();
             } catch (InterruptedException e) {
                 e.printStackTrace();
                 continue;
@@ -28,7 +29,7 @@ public class OutputStreamProcessor implements Runnable {
             try {
                 addressing.consumerData.responseObserver.onNext(addressing.response);
             } catch (Throwable t) {
-                consumers.remove(addressing.consumerData);
+                logger.error("Какая то ошибка при отправке", t);
             }
         }
     }

@@ -1,5 +1,7 @@
 FROM centos:7
-FROM shipilev/openjdk-shenandoah:8
+FROM store/oracle/jdk:11
+#FROM centos:7
+#FROM shipilev/openjdk-shenandoah:8
 
 WORKDIR    /app
 
@@ -13,9 +15,9 @@ CMD        java \
             -XX:+AlwaysPreTouch \
             -XX:+UseContainerSupport \
 #            -Xlog:gc* \
-            -XX:+UseShenandoahGC \
-#            -XX:+UseG1GC \
-#            -XX:MaxGCPauseMillis=10 \
+#            -XX:+UseShenandoahGC \
+            -XX:+UseG1GC \
+            -XX:MaxGCPauseMillis=10 \
 #            -XX:ConcGCThreads=2 \
 #            -XX:+UnlockExperimentalVMOptions \
 #            -XX:G1MixedGCLiveThresholdPercent=90 \
@@ -25,12 +27,12 @@ CMD        java \
 #            -XX:G1MixedGCCountTarget=1 \
             -XX:ActiveProcessorCount=4 \
             -Dio.grpc.netty.shaded.io.netty.availableProcessors=4 \
-            -Dcom.sun.management.jmxremote \
-            -Dcom.sun.management.jmxremote.port=9010 \
-            -Dcom.sun.management.jmxremote.rmi.port=9010 \
-            -Dcom.sun.management.jmxremote.local.only=false \
-            -Dcom.sun.management.jmxremote.authenticate=false \
-            -Dcom.sun.management.jmxremote.ssl=false \
+#            -Dcom.sun.management.jmxremote \
+#            -Dcom.sun.management.jmxremote.port=9010 \
+#            -Dcom.sun.management.jmxremote.rmi.port=9010 \
+#            -Dcom.sun.management.jmxremote.local.only=false \
+#            -Dcom.sun.management.jmxremote.authenticate=false \
+#            -Dcom.sun.management.jmxremote.ssl=false \
             -jar rtk-contest-1.0-SNAPSHOT.jar
 
 #CMD        tail -f /dev/null

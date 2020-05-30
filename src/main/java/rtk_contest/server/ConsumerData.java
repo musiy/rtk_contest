@@ -23,8 +23,6 @@ public class ConsumerData implements Comparable<ConsumerData> {
      */
     final StreamObserver<Mbproto.ConsumeResponse> responseObserver;
 
-    final Lock lock = new ReentrantLock();
-
     public ConsumerData(StreamObserver<Mbproto.ConsumeResponse> responseObserver) {
         this.responseObserver = responseObserver;
     }
@@ -50,9 +48,6 @@ public class ConsumerData implements Comparable<ConsumerData> {
     }
 
     public void send(Mbproto.ConsumeResponse response) {
-        // todo возможно стоит делать через отдельный тред, что бы без локов - нужно тестить
-        lock.lock();
-        responseObserver.onNext(response);
-        lock.unlock();
+        GlobalSearchContext.outputStreamQueue.add(new OutputStreamProcessor.Addressing(this, response));
     }
 }

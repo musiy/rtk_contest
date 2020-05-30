@@ -9,248 +9,310 @@ import rtk_contest.templating.StringHelper;
 import java.util.BitSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class GlobalSearchContext {
 
-    static final int MAX_CONSUMERS = 1_000;
-
     static Logger LOGGER = LoggerFactory.getLogger(GlobalSearchContext.class);
 
+    static final int MAX_CONSUMERS = 1_000;
+
+    public static final BlockingQueue<OutputStreamProcessor.Addressing> outputStreamQueue = new ArrayBlockingQueue<>(30_000);
+
     static Set<ConsumerData> consumers = Sets.newConcurrentHashSet();
+    static Map<Integer, ConsumerData> consumersByNum = new ConcurrentHashMap<>();
     static AtomicInteger consumersCount = new AtomicInteger();
 
     // todo посчитать сколько элементов на максимуме и этим значением инициализировать
-    final static Map<String, Node> storage = new ConcurrentHashMap<>(30_000);
+    final static Map<String, Node> storage_l = new ConcurrentHashMap<>(50_000);
+    final static Map<String, Node> storage_r = new ConcurrentHashMap<>(50_000);
 
     public static void testInit() {
         consumers.clear();
         consumersCount = new AtomicInteger(0);
-        storage.clear();
+        consumersByNum.clear();
+        storage_l.clear();
+        storage_r.clear();
     }
 
     public static void addConsumer(ConsumerData consumerData) {
         consumers.add(consumerData);
         consumersCount.incrementAndGet();
+        consumersByNum.put(consumerData.getNum(), consumerData);
     }
 
+//    static class Stat {
+//        String c1;
+//        String c2;
+//        String c3;
+//
+//        @Override
+//        public String toString() {
+//            return "Stat{" +
+//                   "c1='" + c1 + '\'' +
+//                   ", c2='" + c2 + '\'' +
+//                   ", c3='" + c3 + '\'' +
+//                   '}';
+//        }
+//
+//        @Override
+//        public boolean equals(Object o) {
+//            if (this == o) return true;
+//            if (o == null || getClass() != o.getClass()) return false;
+//            Stat stat = (Stat) o;
+//            return Objects.equals(c1, stat.c1) &&
+//                   Objects.equals(c2, stat.c2) &&
+//                   Objects.equals(c3, stat.c3);
+//        }
+//
+//        @Override
+//        public int hashCode() {
+//            return Objects.hash(c1, c2, c3);
+//        }
+//    }
+//
+//    static Set<Stat> zed = new HashSet<>();
+//
+//    public static void printStat() {
+//        zed.forEach(System.out::println);
+//    }
+
     public static void addTemplate(ConsumerData consumerData, String template) {
+//
+//        Stat stat = new Stat();
+//        for (int i = 0; i < comps.length; i++) {
+//            String c;
+//            if (comps[i].charAt(0) == '#') {
+//                c = "#";
+//            } else if (comps[i].charAt(0) == '*') {
+//                c = "*";
+//            } else {
+//                c = "W";
+//            }
+//            switch (i) {
+//                case 0:
+//                    stat.c1 = c;
+//                    break;
+//                case 1:
+//                    stat.c2 = c;
+//                    break;
+//                case 2:
+//                    stat.c3 = c;
+//                    break;
+//            }
+//        }
+//        zed.add(stat);
+
         String[] comps = StringHelper.split(template);
-        int hashCnt = 0;
-        for (int i = 0; i < comps.length; i++) {
-            if ('#' == comps[i].charAt(0)) {
-                hashCnt ++;
+
+        boolean firstIsSpec = template.charAt(0) == '#' || template.charAt(0) == '*';
+
+        if (!firstIsSpec) {
+            fill(consumerData, storage_l, comps);
+        } else {
+            String[] compsR = new String[comps.length];
+            for (int i = 0; i < comps.length; i++) {
+                compsR[comps.length - 1 - i] = comps[i];
             }
+            fill(consumerData, storage_r, compsR);
         }
-        if (comps.length > 3) {
-            LOGGER.info(template);
-        }
+    }
 
-
-        Map<String, Node> currentNodeMap = storage;
-
+    private static void fill(ConsumerData consumerData, Map<String, Node> map, String[] comps) {
+        Node node = null;
         for (int i = 0; i < comps.length; i++) {
             String comp = comps[i];
-            Node node = currentNodeMap.computeIfAbsent(comp, Node::new);
-            // в мапе по ключу - компоненту хранится нода этого компонента
-            node.templComp = comp;
-            // увеличиваем
+            node = map.computeIfAbsent(comp, Node::new);
             node.count++;
-            if (comp.charAt(0) == '#') {
-                // заполним в hashConsumers консьюмеров, которые проходили по этому пути
-                if (node.hashConsumers == null) {
-                    node.hashConsumers = new BitSet(MAX_CONSUMERS);
+            if (i < comps.length - 1) {
+                if (node.toNextMap == null) {
+                    node.toNextMap = new ConcurrentHashMap<>();
                 }
-                node.hashConsumers.set(consumerData.getNum(), true);
-            }
-            if (i == comps.length - 1) {
-                // если это последний элемент - заполняем endConsumers
-                if (node.endConsumers == null) {
-                    node.endConsumers = Sets.newConcurrentHashSet();
-                }
-                node.endConsumers.add(consumerData);
-            } else {
-                if (node.mappingToNext == null) {
-                    node.mappingToNext = new ConcurrentHashMap<>();
-                }
-                currentNodeMap = node.mappingToNext;
+                map = node.toNextMap;
             }
         }
+        assert node != null;
+        if (node.endHere == null) {
+            node.endHere = new BitSet();
+        }
+        node.endHere.set(consumerData.getNum(), true);
     }
 
     public static void removeTemplate(ConsumerData consumerData, String template) {
         String[] comps = StringHelper.split(template);
 
-        Map<String, Node> currentNodeMap = storage;
+        String firstComp = comps[0];
+        boolean firstIsSpec = firstComp.charAt(0) == '#' || firstComp.charAt(0) == '*';
+        if (!firstIsSpec) {
+            delete(consumerData, storage_l, comps);
+        } else {
+            String[] compsR = new String[comps.length];
+            for (int i = 0; i < comps.length; i++) {
+                compsR[comps.length - 1 - i] = comps[i];
+            }
+            delete(consumerData, storage_r, compsR);
+        }
+    }
+
+    private static void delete(ConsumerData consumerData, Map<String, Node> map, String[] comps) {
+
+        Node node = null;
         for (int i = 0; i < comps.length; i++) {
             String comp = comps[i];
-            Node node = currentNodeMap.get(comp);
+            node = map.get(comp);
             if (node == null) {
-                currentNodeMap.remove(comp);
                 return;
             }
             node.count--;
             if (node.count == 0) {
-                currentNodeMap.remove(comp);
-                // обрубаем дерево
-                break;
-            }
-            if (comp.charAt(0) == '#') {
-                // удалим в hashConsumers консьюмера, который тут больше не живёт
-                node.hashConsumers.set(consumerData.getNum(), false);
-            }
-            if (i == comps.length - 1) {
-                // если это последний элемент - удаляем endConsumers
-                if (node.count > 0) {
-                    node.endConsumers.remove(consumerData);
-                }
-            }
-            currentNodeMap = node.mappingToNext;
-        }
-    }
-
-    public static void matchToAndSend(Mbproto.ConsumeResponse response, String template) {
-        String[] comps = StringHelper.split(template);
-        if (comps.length > 3) {
-            LOGGER.info(template);
-        }
-        BitSet bitSet = new BitSet(consumersCount.get());
-        makeSwitch(bitSet, storage, comps, 0, response);
-    }
-
-    private static void makeSwitch(BitSet bitSet, Map<String, Node> mappingToNext,
-                                   String[] comps, int pos, Mbproto.ConsumeResponse response) {
-        if (pos >= comps.length) {
-            return;
-        }
-        if (mappingToNext == null) {
-            return;
-        }
-        {
-            Node node = mappingToNext.get(comps[pos]);
-            if (node != null) {
-                matchAndSend(bitSet, node, comps, pos, response);
-            }
-        }
-        {
-            Node node = mappingToNext.get("*");
-            if (node != null) {
-                matchAndSend(bitSet, node, comps, pos, response);
-            }
-        }
-        {
-            Node node = mappingToNext.get("#");
-            if (node != null) {
-                handleHash(bitSet, node, comps, pos, response);
-            }
-        }
-    }
-
-    private static void handleHash(BitSet bitSet, Node node, String[] comps, int pos, Mbproto.ConsumeResponse response) {
-        BitSet work = (BitSet) bitSet.clone();
-        work.xor(node.hashConsumers);
-        work.and(node.hashConsumers);
-        if (work.isEmpty()) {
-            return;
-        }
-
-        // текущая решётка - может подходить любому ключу
-        if (node.endConsumers != null) {
-            iterateAndSend(bitSet, response, node.endConsumers);
-        }
-        // 1 - пропускаем, действуем, как будто '#' не было (# может не занимать ни одного слова)
-        Map<String, Node> mappingToNext = node.mappingToNext;
-        if (mappingToNext != null) {
-            for (Node next : mappingToNext.values()) {
-                matchAndSend(bitSet, next, comps, pos, response);
-            }
-        }
-        // 2 - работает как '*', т.е. снимает первое слово в comps
-        if (mappingToNext != null && pos + 1 < comps.length) {
-            for (Node next : mappingToNext.values()) {
-                matchAndSend(bitSet, next, comps, pos + 1, response);
-            }
-        }
-        // 3 - расширение # до любой позиции в компонентах ключа
-        for (int i = pos + 1; i < comps.length; i++) {
-            matchAndSend(bitSet, node, comps, i, response);
-        }
-    }
-
-    private static void matchAndSend(BitSet bitSet, Node node, String[] keyComps, int posInKeyComps,
-                                     Mbproto.ConsumeResponse response) {
-
-        boolean isNodeHash = node.templComp.charAt(0) == '#';
-        boolean isNodeStar = node.templComp.charAt(0) == '*';
-
-        // текущий компонент это либо решётка, либо звезда либо слово
-        if (posInKeyComps == keyComps.length - 1) {
-            boolean isMatched = false;
-            if (node.templComp.equals(keyComps[posInKeyComps])
-                || isNodeStar) {
-                if (node.endConsumers != null) {
-                    iterateAndSend(bitSet, response, node.endConsumers);
-                }
-                isMatched = true;
-            } else if (isNodeHash) {
-                handleHash(bitSet, node, keyComps, posInKeyComps, response);
-                isMatched = true;
-            }
-            if (isMatched) {
-                // если дальше остались только хеши - тоже подходит
-                Node curr = node;
-                while (curr.mappingToNext != null && (curr = curr.mappingToNext.get("#")) != null) {
-                    if (curr.endConsumers != null) {
-                        iterateAndSend(bitSet, response, curr.endConsumers);
-                    }
-                }
-            }
-            return;
-        }
-        if (!isNodeHash && !isNodeStar) {
-            if (!node.templComp.equals(keyComps[posInKeyComps])) {
+                // если ссылок не осталось - прссто обрубаем веточку и можно не уменьшать счётчик
+                map.remove(comp);
                 return;
             }
         }
-        makeSwitch(bitSet, node.mappingToNext, keyComps, posInKeyComps + 1, response);
+        assert node != null;
+        node.endHere.set(consumerData.getNum(), false);
     }
 
-    private static void iterateAndSend(BitSet bitSet, Mbproto.ConsumeResponse response, Set<ConsumerData> consumers) {
-        if (consumers != null) {
-            for (ConsumerData consumer : consumers) {
-                if (!bitSet.get(consumer.getNum())) {
-                    consumer.send(response);
-                    bitSet.set(consumer.getNum(), true);
+    static ThreadLocal<BitSet> bitSetThreadLocal = ThreadLocal.withInitial(() -> new BitSet(MAX_CONSUMERS));
+
+    public static void matchToAndSend(Mbproto.ConsumeResponse response, String key) {
+        String[] compsL = StringHelper.split(key);
+        String[] compsR = new String[compsL.length];
+        for (int i = 0; i < compsL.length; i++) {
+            compsR[compsL.length - 1 - i] = compsL[i];
+        }
+        BitSet bs = new BitSet(MAX_CONSUMERS);
+        search(storage_l, bs, compsL, response, true);
+        search(storage_r, bs, compsR, response, false);
+    }
+
+    private static void search(Map<String, Node> storage, BitSet bs, String[] comps,
+                               Mbproto.ConsumeResponse response, boolean isForward) {
+        String comp1 = comps[0];
+        // на первом уровне всегда доступно слово
+        Node node = storage.get(comp1);
+        if (node == null) {
+            return;
+        }
+        if (comps.length == 1) {
+            // возможны следующие варианты:
+            // SLOVO
+            // SLOVO -> #
+            iterateAndSend(bs, response, node.endHere);
+
+            if (node.toNextMap != null) {
+                Node nodeHash = node.toNextMap.get("#");
+                if (nodeHash != null) {
+                    iterateAndSend(bs, response, nodeHash.endHere);
                 }
             }
+
+        } else if (comps.length == 2) { // ------------------------------------------ два слова
+
+            String comp2 = comps[1];
+            // возможны следующие варианты:
+            // SLOVO2
+            // *
+            // #
+            // (#) -> SLOVO2
+            if (node.toNextMap == null) {
+                return;
+            }
+            Node nodeComp2 = node.toNextMap.get(comp2);
+            if (nodeComp2 != null) {
+                iterateAndSend(bs, response, nodeComp2.endHere);
+            }
+            Node nodeStar = node.toNextMap.get("*");
+            if (nodeStar != null) {
+                iterateAndSend(bs, response, nodeStar.endHere);
+            }
+            Node nodeHash = node.toNextMap.get("#");
+            if (nodeHash != null) {
+                iterateAndSend(bs, response, nodeHash.endHere);
+                if (nodeHash.toNextMap != null) {
+                    Node nodeWord3 = nodeHash.toNextMap.get(comp2);
+                    if (nodeWord3 != null) {
+                        iterateAndSend(bs, response, nodeWord3.endHere);
+                    }
+                }
+            }
+        } else if (comps.length == 3) { // ------------------------------------------ три слова
+            // дальше возможно
+            // SLOVO2 -> SLOVO3
+            //   *    -> *
+            //   *    -> SLOVO3
+            //   #
+            //   #    -> SLOVO3
+            String comp2 = comps[1];
+            String comp3 = comps[2];
+            if (node.toNextMap == null) {
+                return;
+            }
+            Node nodeComp2 = node.toNextMap.get(comp2);
+            if (nodeComp2 != null) {
+                if (nodeComp2.toNextMap != null) {
+                    Node nodeComp3 = nodeComp2.toNextMap.get(comp3);
+                    if (nodeComp3 != null) {
+                        iterateAndSend(bs, response, nodeComp3.endHere);
+                    }
+                }
+            }
+            Node nodeStar2 = node.toNextMap.get("*");
+            if (nodeStar2 != null && nodeStar2.toNextMap != null) {
+                Node nodeStar3 = nodeStar2.toNextMap.get("*");
+                if (nodeStar3 != null) {
+                    iterateAndSend(bs, response, nodeStar3.endHere);
+                }
+                Node nodeWord3 = nodeStar2.toNextMap.get(comp3);
+                if (nodeWord3 != null) {
+                    iterateAndSend(bs, response, nodeWord3.endHere);
+                }
+            }
+            Node nodeHash2 = node.toNextMap.get("#");
+            if (nodeHash2 != null) {
+                iterateAndSend(bs, response, nodeHash2.endHere);
+                if (nodeHash2.toNextMap != null) {
+                    Node nodeWord3 = nodeHash2.toNextMap.get(comp3);
+                    if (nodeWord3 != null) {
+                        iterateAndSend(bs, response, nodeWord3.endHere);
+                    }
+                }
+            }
+        }
+    }
+
+    private static void iterateAndSend(BitSet all, Mbproto.ConsumeResponse response, BitSet endHere) {
+        if (endHere == null) {
+            return;
+        }
+        BitSet work = bitSetThreadLocal.get();
+        work.clear();
+        work.or(all); // init
+        work.xor(endHere);
+        work.and(endHere);
+        if (work.isEmpty()) {
+            return;
+        }
+        for (int i = work.nextSetBit(0); i != -1; i = work.nextSetBit(i + 1)) {
+            ConsumerData consumerData = consumersByNum.get(i);
+            consumerData.send(response);
+            all.set(i);
         }
     }
 
     static class Node {
-        public Node(String templComp) {
-            this.templComp = templComp;
-        }
-
-        // текущий компонент шаблона
-        volatile String templComp;
-
-        volatile BitSet hashConsumers;
-
-        // число шаблонов, которые проходят через эту ноду
+        volatile String templateComponent;
+        volatile BitSet endHere;
+        volatile Map<String, Node> toNextMap;
+        // число консьюмеров, проходящих через ноду
         volatile int count;
 
-        // переход к следующим нодам по слову
-        volatile Map<String, Node> mappingToNext;
-
-        // консьюмеры которые заканчиваются здесь
-        volatile Set<ConsumerData> endConsumers;
-
-        @Override
-        public String toString() {
-            return "Node{" +
-                   "templComp='" + templComp + '\'' +
-                   '}';
+        public Node(String templateComponent) {
+            this.templateComponent = templateComponent;
         }
     }
 }

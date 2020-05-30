@@ -20,13 +20,21 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
      * Пул потоков для обработки входящих сообщений
      */
     @SuppressWarnings("FieldCanBeLocal")
-    private final ExecutorService executorService;
-    private final BlockingQueue<Handler> queue = new ArrayBlockingQueue<>(30_000);
+    private final ExecutorService consumerExecutorService;
+    private final BlockingQueue<Handler> consumerEventQueue = new ArrayBlockingQueue<>(30_000);
+
+    @SuppressWarnings("FieldCanBeLocal")
+    private final ExecutorService outputStreamExecutorService;
+
 
     public MbProtoServiceImpl() {
-        executorService = Executors.newFixedThreadPool(1,
+        consumerExecutorService = Executors.newFixedThreadPool(1,
                 new ThreadFactoryBuilder().setNameFormat("consumers-event-thread--%d").build());
-        executorService.submit(new Processor(queue));
+        consumerExecutorService.submit(new Processor(consumerEventQueue));
+
+        outputStreamExecutorService = Executors.newFixedThreadPool(1,
+                new ThreadFactoryBuilder().setNameFormat("output-stream-thread--%d").build());
+        outputStreamExecutorService.submit(new OutputStreamProcessor(GlobalSearchContext.outputStreamQueue));
     }
 
     public StreamObserver<Mbproto.ProduceRequest> produce(
@@ -77,7 +85,7 @@ public class MbProtoServiceImpl extends MessageBrokerGrpc.MessageBrokerImplBase 
 
             @Override
             public void onNext(Mbproto.ConsumeRequest consumeRequest) {
-                queue.add(new ChangeSubscriptionHandler(thisConsumer, consumeRequest));
+                consumerEventQueue.add(new ChangeSubscriptionHandler(thisConsumer, consumeRequest));
             }
 
             @Override

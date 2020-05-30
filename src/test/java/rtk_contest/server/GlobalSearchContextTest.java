@@ -11,6 +11,8 @@ import org.mockito.Mockito;
 import java.math.BigInteger;
 import java.util.BitSet;
 
+import static org.mockito.ArgumentMatchers.any;
+
 @RunWith(JUnitPlatform.class)
 class GlobalSearchContextTest {
 
@@ -18,17 +20,32 @@ class GlobalSearchContextTest {
     public void test() {
         StreamObserver<Mbproto.ConsumeResponse> responseObserver = Mockito.mock(StreamObserver.class);
         ConsumerData consumerData = new ConsumerData(responseObserver);
+        consumerData = Mockito.spy(consumerData);
         GlobalSearchContext.addConsumer(consumerData);
         GlobalSearchContext.addTemplate(consumerData, "one.#");
         GlobalSearchContext.addTemplate(consumerData, "one");
         GlobalSearchContext.addTemplate(consumerData, "one.*");
-        GlobalSearchContext.addTemplate(consumerData, "one.two");
-        GlobalSearchContext.removeTemplate(consumerData, "one");
+        GlobalSearchContext.addTemplate(consumerData, "one.*.*");
+        GlobalSearchContext.addTemplate(consumerData, "one.*.two");
+        GlobalSearchContext.addTemplate(consumerData, "one.#.two");
+
+//        GlobalSearchContext.removeTemplate(consumerData, "one.#");
+//        GlobalSearchContext.removeTemplate(consumerData, "one");
+//        GlobalSearchContext.removeTemplate(consumerData, "one.*");
+//        GlobalSearchContext.removeTemplate(consumerData, "one.*.*");
+//        GlobalSearchContext.removeTemplate(consumerData, "one.*.two");
+        //GlobalSearchContext.removeTemplate(consumerData, "one.#.two");
+
+//        GlobalSearchContext.addTemplate(consumerData, "#.one");
+//        GlobalSearchContext.addTemplate(consumerData, "*.one");
+//        GlobalSearchContext.addTemplate(consumerData, "*.*.one");
+
         Mbproto.ConsumeResponse response = Mbproto.ConsumeResponse.newBuilder()
-                .setKey("test")
+                .setKey("one")
                 .setPayload(ByteString.copyFromUtf8("test"))
                 .build();
         GlobalSearchContext.matchToAndSend(response, "one");
+        Mockito.verify(consumerData, Mockito.times(1)).send(any());
     }
 
     @Test
@@ -45,14 +62,15 @@ class GlobalSearchContextTest {
         param.set(2, false);
         param.set(3, true);
 
-        BitSet work = (BitSet) source.clone();
+        BitSet work = new BitSet();
+        work.clear();
+        work.or(source);
         work.xor(param);
         work.and(param);
 
-
         BigInteger sourceBi = new BigInteger(source.toByteArray());
 
-        System.out.println(1 <<  1);
+        System.out.println(1 << 1);
         System.out.println(1 >> 2);
     }
 

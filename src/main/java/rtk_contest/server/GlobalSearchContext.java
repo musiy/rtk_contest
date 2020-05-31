@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class GlobalSearchContext {
@@ -28,8 +29,8 @@ public class GlobalSearchContext {
     static AtomicInteger consumersCount = new AtomicInteger();
 
     // todo посчитать сколько элементов на максимуме и этим значением инициализировать
-    final static Map<String, Node> storage_l = new ConcurrentHashMap<>(50_000);
-    final static Map<String, Node> storage_r = new ConcurrentHashMap<>(50_000);
+    final static Map<String, Node> storage_l = new ConcurrentHashMap<>(3_000_000);
+    final static Map<String, Node> storage_r = new ConcurrentHashMap<>(100_000);
 
     public static void testInit() {
         consumers.clear();
@@ -45,6 +46,13 @@ public class GlobalSearchContext {
         consumers.add(consumerData);
         consumersCount.incrementAndGet();
         consumersByNum[consumerData.getNum()] = consumerData;
+    }
+
+    static AtomicInteger cnt = new AtomicInteger(0);
+    public static void printStat() {
+        LOGGER.info(String.format("size of storage_l: %d", storage_l.size()));
+        LOGGER.info(String.format("size of storage_r: %d", storage_r.size()));
+        LOGGER.info(String.format("count of templates: %d", cnt.get()));
     }
 
 //    static class Stat {
@@ -112,16 +120,12 @@ public class GlobalSearchContext {
             return comps;
         }
 
-        String[] getCompsR(String key) {
-            int cnt = 1;
-            for (int i = 0; i < key.length(); i++) {
-                if (key.charAt(i) == '.') {
-                    cnt++;
-                }
+        String[] getCompsR(String key, String[] compsL) {
+            String[] compsR = getCompByCnt(compsL.length, false);
+            for (int i = 0; i < compsL.length; i++) {
+                compsR[compsL.length - 1 - i] = compsL[i];
             }
-            String[] comps = getCompByCnt(cnt, false);
-            fill(key, comps);
-            return comps;
+            return compsR;
         }
 
         private void fill(String key, String[] comps) {
@@ -157,6 +161,7 @@ public class GlobalSearchContext {
     static ThreadLocal<SplitterData> splitterDataThreadLocal = ThreadLocal.withInitial(SplitterData::new);
 
     public static void addTemplate(ConsumerData consumerData, String template) {
+        cnt.incrementAndGet();
 //
 //        Stat stat = new Stat();
 //        for (int i = 0; i < comps.length; i++) {
@@ -189,7 +194,7 @@ public class GlobalSearchContext {
         if (!firstIsSpec) {
             fill(consumerData, storage_l, compsL);
         } else {
-            String[] compsR = splitterDataThreadLocal.get().getCompsR(template);
+            String[] compsR = splitterDataThreadLocal.get().getCompsR(template, compsL);
             for (int i = 0; i < compsL.length; i++) {
                 compsR[compsL.length - 1 - i] = compsL[i];
             }
@@ -218,6 +223,7 @@ public class GlobalSearchContext {
     }
 
     public static void removeTemplate(ConsumerData consumerData, String template) {
+        cnt.decrementAndGet();
         String[] comps = StringHelper.split(template);
 
         String firstComp = comps[0];
@@ -288,10 +294,7 @@ public class GlobalSearchContext {
 
     public static void matchToAndSend(String key, ByteString payload) {
         String[] compsL = splitterDataThreadLocal.get().getCompsL(key);
-        String[] compsR = splitterDataThreadLocal.get().getCompsR(key);
-        for (int i = 0; i < compsL.length; i++) {
-            compsR[compsL.length - 1 - i] = compsL[i];
-        }
+        String[] compsR = splitterDataThreadLocal.get().getCompsR(key, compsL);
         BitSet bs = allBitSetThreadLocal.get();
         bs.clear();
         ResponseKeeper responseKeeper = keeperThreadLocal.get();

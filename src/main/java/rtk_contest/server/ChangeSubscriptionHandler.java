@@ -19,9 +19,9 @@ public class ChangeSubscriptionHandler implements Handler {
     @Override
     public void handle() {
         for (int i = 0; i < consumeRequest.getKeysCount(); i++) {
-//            if (consumeRequest.getKeys(i).equals("print_stat")) {
-//                GlobalSearchContext.printStat();
-//            }
+            if (consumeRequest.getKeys(i).equals("print_stat")) {
+                GlobalSearchContext.printStat();
+            }
             if (consumeRequest.getActionValue() == 0) {
                 GlobalSearchContext.addTemplate(consumer, consumeRequest.getKeys(i));
             } else {

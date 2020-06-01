@@ -14,7 +14,11 @@ CMD        java \
             -Xmx1800m \
             -XX:+AlwaysPreTouch \
             -XX:+UseContainerSupport \
-#            -Xlog:gc* \
+#            -XX:+UnlockExperimentalVMOptions \
+#            -XX:+UseZGC \
+#            -XX:ParallelGCThreads=4 \
+#            -XX:ConcGCThreads=1 \
+            -Xlog:gc* \
 #            -XX:+UseShenandoahGC \
             -XX:+UseG1GC \
             -XX:MaxGCPauseMillis=10 \

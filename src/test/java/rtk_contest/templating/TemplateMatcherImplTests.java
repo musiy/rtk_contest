@@ -31,13 +31,14 @@ public class TemplateMatcherImplTests {
         GlobalSearchContext.addConsumer(consumerData);
         GlobalSearchContext.addTemplate(consumerData, template);
         Mbproto.ConsumeResponse response = Mbproto.ConsumeResponse.newBuilder()
-                .setKey("test")
-                .setPayload(ByteString.copyFromUtf8("test"))
+                .setKey(key)
+                .setPayload(ByteString.copyFromUtf8(key))
                 .build();
         GlobalSearchContext.matchToAndSend(key, response.getPayload());
         ArgumentCaptor<Mbproto.ConsumeResponse> argumentCaptor = ArgumentCaptor.forClass(Mbproto.ConsumeResponse.class);
         Mockito.verify(consumerData).send(argumentCaptor.capture());
-        assertSame(response, argumentCaptor.getValue());
+        assertSame(response.getKey(), argumentCaptor.getValue().getKey());
+        assertSame(response.getPayload(), argumentCaptor.getValue().getPayload());
     }
 
     private static void shouldNotMatch(String template, String key) {

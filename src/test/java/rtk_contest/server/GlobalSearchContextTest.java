@@ -29,12 +29,12 @@ class GlobalSearchContextTest {
         GlobalSearchContext.addTemplate(consumerData, "one.*.two");
         GlobalSearchContext.addTemplate(consumerData, "one.#.two");
 
-//        GlobalSearchContext.removeTemplate(consumerData, "one.#");
-//        GlobalSearchContext.removeTemplate(consumerData, "one");
-//        GlobalSearchContext.removeTemplate(consumerData, "one.*");
-//        GlobalSearchContext.removeTemplate(consumerData, "one.*.*");
-//        GlobalSearchContext.removeTemplate(consumerData, "one.*.two");
-        //GlobalSearchContext.removeTemplate(consumerData, "one.#.two");
+        GlobalSearchContext.removeTemplate(consumerData, "one.#");
+        GlobalSearchContext.removeTemplate(consumerData, "one");
+        GlobalSearchContext.removeTemplate(consumerData, "one.*");
+        GlobalSearchContext.removeTemplate(consumerData, "one.*.*");
+        GlobalSearchContext.removeTemplate(consumerData, "one.*.two");
+        GlobalSearchContext.removeTemplate(consumerData, "one.#.two");
 
 //        GlobalSearchContext.addTemplate(consumerData, "#.one");
 //        GlobalSearchContext.addTemplate(consumerData, "*.one");

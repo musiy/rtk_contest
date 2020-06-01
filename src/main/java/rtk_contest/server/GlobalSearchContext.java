@@ -5,7 +5,6 @@ import com.google.protobuf.ByteString;
 import mbproto.Mbproto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import rtk_contest.templating.StringHelper;
 
 import java.util.BitSet;
 import java.util.Map;
@@ -13,7 +12,6 @@ import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class GlobalSearchContext {
@@ -48,11 +46,12 @@ public class GlobalSearchContext {
         consumersByNum[consumerData.getNum()] = consumerData;
     }
 
-    static AtomicInteger cnt = new AtomicInteger(0);
+    static AtomicInteger stat_cnt = new AtomicInteger(0);
+
     public static void printStat() {
         LOGGER.info(String.format("size of storage_l: %d", storage_l.size()));
         LOGGER.info(String.format("size of storage_r: %d", storage_r.size()));
-        LOGGER.info(String.format("count of templates: %d", cnt.get()));
+        LOGGER.info(String.format("count of templates: %d", stat_cnt.get()));
     }
 
 //    static class Stat {
@@ -120,7 +119,7 @@ public class GlobalSearchContext {
             return comps;
         }
 
-        String[] getCompsR(String key, String[] compsL) {
+        String[] getCompsR(String[] compsL) {
             String[] compsR = getCompByCnt(compsL.length, false);
             for (int i = 0; i < compsL.length; i++) {
                 compsR[compsL.length - 1 - i] = compsL[i];
@@ -161,7 +160,7 @@ public class GlobalSearchContext {
     static ThreadLocal<SplitterData> splitterDataThreadLocal = ThreadLocal.withInitial(SplitterData::new);
 
     public static void addTemplate(ConsumerData consumerData, String template) {
-        cnt.incrementAndGet();
+        stat_cnt.incrementAndGet();
 //
 //        Stat stat = new Stat();
 //        for (int i = 0; i < comps.length; i++) {
@@ -194,7 +193,7 @@ public class GlobalSearchContext {
         if (!firstIsSpec) {
             fill(consumerData, storage_l, compsL);
         } else {
-            String[] compsR = splitterDataThreadLocal.get().getCompsR(template, compsL);
+            String[] compsR = splitterDataThreadLocal.get().getCompsR(compsL);
             for (int i = 0; i < compsL.length; i++) {
                 compsR[compsL.length - 1 - i] = compsL[i];
             }
@@ -203,38 +202,71 @@ public class GlobalSearchContext {
     }
 
     private static void fill(ConsumerData consumerData, Map<String, Node> map, String[] comps) {
+
+        Object from = map;
         Node node = null;
+
         for (int i = 0; i < comps.length; i++) {
             String comp = comps[i];
-            node = map.computeIfAbsent(comp, Node::new);
-            node.count++;
+            if (from instanceof Map) {
+                node = ((Map<String, Node>) from).computeIfAbsent(comp, GlobalSearchContext::getNode);
+            } else {
+                node = getNode(comp);
+                ((Node) from).next = node;
+            }
             if (i < comps.length - 1) {
-                if (node.toNextMap == null) {
-                    node.toNextMap = new ConcurrentHashMap<>(1);
+                if (node.next == null) {
+                    from = node; // заполним на следующем шаге
+                } else if (node.next instanceof Node) {
+                    Node tmpNode = (Node) node.next;
+                    Map<String, Node> tmpMap = GlobalSearchContext.getMap(2); // 2 - capacity
+                    tmpMap.put(tmpNode.templateComponent, tmpNode);
+                    node.next = tmpMap;
+                    from = tmpMap;
+                } else if (node.next instanceof Map) {
+                    from = node.next;
+                } else {
+                    LOGGER.error("Ошибка заполнения ноды");
                 }
-                map = node.toNextMap;
             }
         }
         assert node != null;
         if (node.endHere == null) {
-            node.endHere = new BitSet();
+            node.endHere = consumerData.getNum();
+        } else if (node.endHere instanceof Integer) {
+            int prevVal = (int) node.endHere;
+            BitSet newVal = new BitSet();
+            newVal.set(prevVal, true);
+            newVal.set(consumerData.getNum(), true);
+            node.endHere = newVal;
+        } else {
+            BitSet val = (BitSet) node.endHere;
+            val.set(consumerData.getNum(), true);
         }
-        node.endHere.set(consumerData.getNum(), true);
+        //node.endHere.set(consumerData.getNum(), true);
+    }
+
+    static Node getNode(String comp) {
+        // todo сделать пул нод
+        return new Node(comp);
+    }
+
+    static Map<String, Node> getMap(int capacity) {
+        // todo сделать пул карт
+        return new ConcurrentHashMap<>(capacity, 1.0f, 4);
     }
 
     public static void removeTemplate(ConsumerData consumerData, String template) {
-        cnt.decrementAndGet();
-        String[] comps = StringHelper.split(template);
+        stat_cnt.decrementAndGet();
 
-        String firstComp = comps[0];
+        String[] compsL = splitterDataThreadLocal.get().getCompsL(template);
+
+        String firstComp = compsL[0];
         boolean firstIsSpec = firstComp.charAt(0) == '#' || firstComp.charAt(0) == '*';
         if (!firstIsSpec) {
-            delete(consumerData, storage_l, comps);
+            delete(consumerData, storage_l, compsL);
         } else {
-            String[] compsR = new String[comps.length];
-            for (int i = 0; i < comps.length; i++) {
-                compsR[comps.length - 1 - i] = comps[i];
-            }
+            String[] compsR = splitterDataThreadLocal.get().getCompsR(compsL);
             delete(consumerData, storage_r, compsR);
         }
     }
@@ -248,15 +280,39 @@ public class GlobalSearchContext {
             if (node == null) {
                 return;
             }
-            node.count--;
-            if (node.count == 0) {
-                // если ссылок не осталось - прссто обрубаем веточку и можно не уменьшать счётчик
+            if (node.next instanceof Node) {
                 map.remove(comp);
                 return;
             }
+            map = (Map<String, Node>) node.next;
         }
         assert node != null;
-        node.endHere.set(consumerData.getNum(), false);
+        if (node.endHere != null) {
+            if (node.endHere instanceof Integer) {
+                node.endHere = null;
+            } else if (node.endHere instanceof BitSet) {
+                BitSet endHere = (BitSet) node.endHere;
+                endHere.set(consumerData.getNum(), false);
+            }
+        }
+        //node.endHere.set(consumerData.getNum(), false);
+
+//        Node node = null;
+//        for (int i = 0; i < comps.length; i++) {
+//            String comp = comps[i];
+//            node = map.get(comp);
+//            if (node == null) {
+//                return;
+//            }
+//            node.count--;
+//            if (node.count == 0) {
+//                // если ссылок не осталось - прссто обрубаем веточку и можно не уменьшать счётчик
+//                map.remove(comp);
+//                return;
+//            }
+//        }
+//        assert node != null;
+//        node.endHere.set(consumerData.getNum(), false);
     }
 
     static ThreadLocal<BitSet> workBitSetThreadLocal = ThreadLocal.withInitial(() -> new BitSet(MAX_CONSUMERS));
@@ -294,7 +350,7 @@ public class GlobalSearchContext {
 
     public static void matchToAndSend(String key, ByteString payload) {
         String[] compsL = splitterDataThreadLocal.get().getCompsL(key);
-        String[] compsR = splitterDataThreadLocal.get().getCompsR(key, compsL);
+        String[] compsR = splitterDataThreadLocal.get().getCompsR(compsL);
         BitSet bs = allBitSetThreadLocal.get();
         bs.clear();
         ResponseKeeper responseKeeper = keeperThreadLocal.get();
@@ -318,8 +374,8 @@ public class GlobalSearchContext {
             // SLOVO -> #
             iterateAndSend(bs, responseKeeper, node.endHere);
 
-            if (node.toNextMap != null) {
-                Node nodeHash = node.toNextMap.get("#");
+            if (node.next != null) {
+                Node nodeHash = getNodeComp(node, "#");
                 if (nodeHash != null) {
                     iterateAndSend(bs, responseKeeper, nodeHash.endHere);
                 }
@@ -333,22 +389,22 @@ public class GlobalSearchContext {
             // *
             // #
             // (#) -> SLOVO2
-            if (node.toNextMap == null) {
+            if (node.next == null) {
                 return;
             }
-            Node nodeComp2 = node.toNextMap.get(comp2);
+            Node nodeComp2 = getNodeComp(node, comp2);
             if (nodeComp2 != null) {
                 iterateAndSend(bs, responseKeeper, nodeComp2.endHere);
             }
-            Node nodeStar = node.toNextMap.get("*");
+            Node nodeStar = getNodeComp(node, "*");
             if (nodeStar != null) {
                 iterateAndSend(bs, responseKeeper, nodeStar.endHere);
             }
-            Node nodeHash = node.toNextMap.get("#");
+            Node nodeHash = getNodeComp(node, "#");
             if (nodeHash != null) {
                 iterateAndSend(bs, responseKeeper, nodeHash.endHere);
-                if (nodeHash.toNextMap != null) {
-                    Node nodeWord3 = nodeHash.toNextMap.get(comp2);
+                if (nodeHash.next != null) {
+                    Node nodeWord3 = getNodeComp(nodeHash, comp2);
                     if (nodeWord3 != null) {
                         iterateAndSend(bs, responseKeeper, nodeWord3.endHere);
                     }
@@ -363,34 +419,34 @@ public class GlobalSearchContext {
             //   #    -> SLOVO3
             String comp2 = comps[1];
             String comp3 = comps[2];
-            if (node.toNextMap == null) {
+            if (node.next == null) {
                 return;
             }
-            Node nodeComp2 = node.toNextMap.get(comp2);
+            Node nodeComp2 = getNodeComp(node, comp2);
             if (nodeComp2 != null) {
-                if (nodeComp2.toNextMap != null) {
-                    Node nodeComp3 = nodeComp2.toNextMap.get(comp3);
+                if (nodeComp2.next != null) {
+                    Node nodeComp3 = getNodeComp(nodeComp2, comp3);
                     if (nodeComp3 != null) {
                         iterateAndSend(bs, responseKeeper, nodeComp3.endHere);
                     }
                 }
             }
-            Node nodeStar2 = node.toNextMap.get("*");
-            if (nodeStar2 != null && nodeStar2.toNextMap != null) {
-                Node nodeStar3 = nodeStar2.toNextMap.get("*");
+            Node nodeStar2 = getNodeComp(node, "*");
+            if (nodeStar2 != null && nodeStar2.next != null) {
+                Node nodeStar3 = getNodeComp(nodeStar2, "*");
                 if (nodeStar3 != null) {
                     iterateAndSend(bs, responseKeeper, nodeStar3.endHere);
                 }
-                Node nodeWord3 = nodeStar2.toNextMap.get(comp3);
+                Node nodeWord3 = getNodeComp(nodeStar2, comp3);
                 if (nodeWord3 != null) {
                     iterateAndSend(bs, responseKeeper, nodeWord3.endHere);
                 }
             }
-            Node nodeHash2 = node.toNextMap.get("#");
+            Node nodeHash2 = getNodeComp(node, "#");
             if (nodeHash2 != null) {
                 iterateAndSend(bs, responseKeeper, nodeHash2.endHere);
-                if (nodeHash2.toNextMap != null) {
-                    Node nodeWord3 = nodeHash2.toNextMap.get(comp3);
+                if (nodeHash2.next != null) {
+                    Node nodeWord3 = getNodeComp(nodeHash2, comp3);
                     if (nodeWord3 != null) {
                         iterateAndSend(bs, responseKeeper, nodeWord3.endHere);
                     }
@@ -399,37 +455,74 @@ public class GlobalSearchContext {
         }
     }
 
-    private static void iterateAndSend(BitSet all, ResponseKeeper responseKeeper, BitSet endHere) {
-        if (endHere == null) {
+    static Node getNodeComp(Node node, String comp) {
+        if (node.next instanceof Map) {
+            Map<String, Node> tmpMap = (Map<String, Node>) node.next;
+            return tmpMap.get(comp);
+        } else if (node.next instanceof Node) {
+            Node tmpNode = (Node) node.next;
+            if (comp.equals(tmpNode.templateComponent)) {
+                return tmpNode;
+            }
+            return null;
+        } else {
+            LOGGER.error("Странная нода");
+            return null;
+        }
+    }
+
+    private static void iterateAndSend(BitSet all, ResponseKeeper responseKeeper, Object endHereObj) {
+        if (endHereObj == null) {
             return;
         }
-        if (endHere.cardinality() == 0) {
-            return;
-        }
-        BitSet work = workBitSetThreadLocal.get();
-        work.clear();
-        work.or(all); // init
-        work.xor(endHere);
-        work.and(endHere);
-        if (work.isEmpty()) {
-            return;
-        }
-        for (int i = work.nextSetBit(0); i != -1; i = work.nextSetBit(i + 1)) {
-            ConsumerData consumerData = consumersByNum[i];
-            consumerData.send(responseKeeper.obtaint());
-            all.set(i);
+        if (endHereObj instanceof BitSet) {
+            BitSet endHere = (BitSet) endHereObj;
+            if (endHere.cardinality() == 0) {
+                return;
+            }
+            BitSet work = workBitSetThreadLocal.get();
+            work.clear();
+            work.or(all); // init
+            work.xor(endHere);
+            work.and(endHere);
+            if (work.isEmpty()) {
+                return;
+            }
+            for (int i = work.nextSetBit(0); i != -1; i = work.nextSetBit(i + 1)) {
+                ConsumerData consumerData = consumersByNum[i];
+                consumerData.send(responseKeeper.obtaint());
+                all.set(i);
+            }
+        } else if (endHereObj instanceof Integer) {
+            int num = (int) endHereObj;
+            if (!all.get(num)) {
+                ConsumerData consumerData = consumersByNum[num];
+                consumerData.send(responseKeeper.obtaint());
+                all.set(num);
+            }
         }
     }
 
     static class Node {
         volatile String templateComponent;
-        volatile BitSet endHere;
-        volatile Map<String, Node> toNextMap;
-        // число консьюмеров, проходящих через ноду
-        volatile int count;
+        volatile Object endHere;
+        volatile Object next; // Map<String, Node>
 
         public Node(String templateComponent) {
             this.templateComponent = templateComponent;
+        }
+
+        // число консьюмеров, проходящих через ноду
+        public boolean noMoreConsumers() {
+            if (next == null) {
+                return true;
+            }
+            if (next instanceof Map) {
+                return ((Map) next).isEmpty();
+            } else if (next instanceof Node) {
+                return true;
+            }
+            return true;
         }
     }
 }
